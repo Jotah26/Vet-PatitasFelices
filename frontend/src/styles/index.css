@@ -1,0 +1,14 @@
+/* Punto de entrada de los estilos globales. */
+@import "tailwindcss";
+@import "./tema.css";
+@import "./base.css";
+@import "./animaciones.css";
+
+/* Alineación de los iconos FA; el tamaño lo ponen las utilidades (h-4, w-6). */
+@layer components {
+  .svg-inline--fa {
+    display: inline-block;
+    overflow: visible;
+    vertical-align: -0.125em;
+  }
+}
