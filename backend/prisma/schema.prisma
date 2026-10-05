@@ -34,6 +34,20 @@ enum PetSex {
   FEMALE @map("Hembra")
 }
 
+enum AppointmentStatus {
+  PENDING   @map("Pendiente")
+  CONFIRMED @map("Confirmada")
+  IN_ROOM   @map("En sala")
+  ATTENDED  @map("Atendida")
+  CANCELLED @map("Cancelada")
+}
+
+enum AppointmentRequestResolution {
+  PENDING  @map("Pendiente")
+  ACCEPTED @map("Aceptada")
+  REJECTED @map("Rechazada")
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   key       RoleKey  @unique
@@ -55,6 +69,7 @@ model User {
   updatedAt DateTime   @updatedAt @map("updated_at")
   owner     Owner?
   role      Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointmentsAsVeterinarian Appointment[] @relation("AppointmentVeterinarian")
 
   @@index([roleId])
   @@map("users")
@@ -72,6 +87,7 @@ model Owner {
   updatedAt      DateTime @updatedAt @map("updated_at")
   pets           Pet[]
   user           User?    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointmentRequests AppointmentRequest[]
 
   @@map("owners")
 }
@@ -92,7 +108,48 @@ model Pet {
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
   owner              Owner      @relation(fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointments        Appointment[]
+  appointmentRequests AppointmentRequest[]
 
   @@index([ownerId])
   @@map("pets")
+}
+
+model Appointment {
+  id              Int                 @id @default(autoincrement())
+  scheduledAt     DateTime            @map("scheduled_at")
+  petId           Int                 @map("pet_id")
+  veterinarianId  Int                 @map("veterinarian_id")
+  reason          String
+  status          AppointmentStatus   @default(PENDING)
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  pet             Pet                 @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian    User                @relation("AppointmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resolvedRequest AppointmentRequest?
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@map("appointments")
+}
+
+model AppointmentRequest {
+  id                    Int                          @id @default(autoincrement())
+  ownerId               Int                          @map("owner_id")
+  petId                 Int                          @map("pet_id")
+  scheduledAt           DateTime                     @map("scheduled_at")
+  reason                String
+  resolutionState       AppointmentRequestResolution @default(PENDING) @map("resolution_state")
+  rejectionReason       String?                      @map("rejection_reason")
+  resolvedAppointmentId Int?                         @unique @map("resolved_appointment_id")
+  resolvedAt            DateTime?                    @map("resolved_at")
+  createdAt             DateTime                     @default(now()) @map("created_at")
+  updatedAt             DateTime                     @updatedAt @map("updated_at")
+  owner                 Owner                        @relation(fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pet                   Pet                          @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resolvedAppointment   Appointment?                 @relation(fields: [resolvedAppointmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([ownerId])
+  @@index([petId])
+  @@map("appointment_requests")
 }

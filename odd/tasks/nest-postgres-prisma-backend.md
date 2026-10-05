@@ -36,6 +36,23 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; multiple modules and API tests.
   - Acceptance: validated CRUD and scheduling conflict protection are available through the API.
   - Checks: focused e2e/integration tests.
+  - Delivery strategy: ask-on-risk. Estimated scope exceeds one review slice; each work unit will be independently committed and assessed.
+  - [x] B04.1 — Add appointment and appointment-request persistence with transactional scheduling constraints.
+    - Route: delegated; schema, migration, and integration verification require coupled database work.
+    - Acceptance: non-cancelled veterinarian slots are unique at the PostgreSQL layer and request resolution can link an appointment.
+    - Checks: Prisma validation, migration deployment, relational/conflict integration verification.
+  - [ ] B04.2 — Add authenticated staff CRUD endpoints for owners and pets.
+    - Route: delegated; two API verticals with DTOs, services, controllers, authorization, and tests.
+    - Acceptance: normalized inputs, ownership integrity, uniqueness conflicts, and restrictive deletion behavior are exposed safely.
+    - Checks: focused Jest e2e tests, lint, build.
+  - [ ] B04.3 — Add authenticated staff appointment lifecycle endpoints.
+    - Route: delegated; authorization, assigned-veterinarian validation, status transitions, and database conflict mapping are coupled.
+    - Acceptance: staff can manage appointments without double-booking active slots.
+    - Checks: focused Jest e2e tests and PostgreSQL conflict verification.
+  - [ ] B04.4 — Add owner-scoped appointment requests and staff resolution lifecycle.
+    - Route: delegated; owner authorization, request-to-appointment transaction, and resolution rules span multiple modules.
+    - Acceptance: owners can request appointments only for their pets; staff can accept or reject them atomically.
+    - Checks: focused Jest e2e tests and transactional integration verification.
 - [ ] B05 — Implement clinical care, private attachments, inventory, payments, and reminders in bounded verticals.
   - Route: delegated; multiple non-trivial modules; split into coherent work-unit commits.
   - Acceptance: clinical workflows are transactional and sensitive files are private.
@@ -105,6 +122,22 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Prisma validation: `npm run prisma:validate` — passed.
   - Local PostgreSQL deployment: `npm run prisma:migrate:deploy` and `npx prisma migrate status` — passed; no migrations were pending and the schema was up to date.
   - Local PostgreSQL migration path: a rollback-scoped transaction removed the existing column, inserted a legacy user, applied the nullable-add/backfill/non-null sequence, confirmed the backfill and non-null constraint, then rolled back — passed.
+- B04.1 adds `Appointment` and `AppointmentRequest` persistence. Both models retain restrictive foreign keys; appointment requests have an explicit resolution state and an optional one-to-one resolved appointment link.
+- B04.1 migration `20261005160000_add_appointments_and_requests` is forward-only. Its partial unique PostgreSQL index permits a veterinarian to have at most one non-cancelled appointment at a scheduled timestamp while allowing a cancelled appointment at that slot.
+- TDD evidence for B04.1:
+  - RED: `npm test -- --runInBand test/appointment-persistence.e2e-spec.ts` failed before implementation (1 suite failed; 1 test failed) because the schema did not declare `model Appointment`.
+  - GREEN: after the Prisma models and migration were added, the same command passed (1 suite passed; 1 test passed).
+  - REFACTOR: no behavior refactor was warranted; Prisma formatting was evaluated, and the final schema retains the repository's existing field-alignment convention. The focused test passed again against the final schema.
+- Observed B04.1 checks:
+  - Focused persistence Jest test: `npm test -- --runInBand test/appointment-persistence.e2e-spec.ts` — passed (1 suite, 1 test).
+  - PostgreSQL integration test: `npm run test:appointment-persistence` — passed and rolled back. It confirmed duplicate active veterinarian slots raise a unique violation, a cancelled slot may coexist, and an accepted request can link its resolved appointment.
+  - Prisma validation: `npm run prisma:validate` — passed.
+  - Migration deployment: `npm run prisma:migrate:deploy` — passed; no migrations were pending after applying B04.1.
+  - Migration status: `npx prisma migrate status` — passed; database schema is up to date.
+  - All backend tests: `npm test -- --runInBand` — passed (4 suites, 5 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+- B04.1 rollback boundary: revert migration `20261005160000_add_appointments_and_requests` only in a fresh database or through a compensating migration in an already deployed database; remove the appointment schema relations, focused test, and this B04.1 evidence. No API endpoint behavior was introduced.
 
 ## Next step
-Implement B04: owners, pets, appointments, and appointment requests API verticals.
+Implement B04.2: authenticated staff CRUD endpoints for owners and pets.

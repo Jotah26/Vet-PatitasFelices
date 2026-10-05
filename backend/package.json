@@ -9,6 +9,7 @@
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",
     "test:auth": "jest --runInBand test/auth.e2e-spec.ts",
+    "test:appointment-persistence": "prisma db execute --file test/appointment-persistence.integration.sql",
     "test:health": "jest --runInBand test/health.e2e-spec.ts",
     "prisma:validate": "prisma validate",
     "prisma:migrate:deploy": "prisma migrate deploy",
