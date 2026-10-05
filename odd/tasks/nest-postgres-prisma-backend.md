@@ -48,7 +48,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
 - B01 implemented a standalone NestJS application in `backend/`; it does not add Prisma, PostgreSQL, authentication, or business modules.
-- B01 work-unit commit: `db1f787994d360a3c99777b37f1532f5fa15c79f` (`feat(backend): bootstrap NestJS health API`).
+- B01 work-unit commit: `0026503` (`feat(backend): inicializa API NestJS con salud`).
 - TDD evidence for B01:
   - RED: `npm run test:health` failed before implementation with `TS2307: Cannot find module '../src/app.module'` (1 suite failed; 0 tests executed).
   - GREEN: after the health controller and application module were added, the same command passed (1 suite passed; 1 test passed). The initial GREEN run exposed `TypeError: supertest_1.default is not a function`; adding `esModuleInterop` to TypeScript configuration resolved the CommonJS interop configuration issue.
