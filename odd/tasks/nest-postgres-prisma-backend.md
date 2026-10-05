@@ -28,7 +28,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; data model and migration are non-trivial coupled files.
   - Acceptance: migrations apply and relational integrity is verified.
   - Checks: Prisma validation, migration test, focused service tests.
-- [ ] B03 — Implement secure authentication and server-side role-based authorization.
+- [x] B03 — Implement secure authentication and server-side role-based authorization.
   - Route: delegated; multiple modules and tests.
   - Acceptance: credentials are hashed; protected endpoints reject unauthenticated or unauthorized requests.
   - Checks: focused auth and authorization tests.
@@ -81,6 +81,25 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Database relational verification: a transaction-scoped `prisma db execute` check passed and rolled back. It confirmed the unique role key, user email, owner document number, owner email, and owner user-link constraints, plus restrictive foreign keys from users to roles, owners to users, and pets to owners.
 - B02 rollback boundary: remove `backend/prisma.config.ts`, `backend/prisma/`, the Prisma dependency and scripts, the database environment validation/test setup, and this B02 evidence. B01 health behavior remains independently restorable.
 - B02 delivery: one cohesive work-unit commit, including the generated dependency lockfile and task evidence.
+- B03 bootstrap decision: create the first administrator through an explicit local environment-driven command, not on every application startup and not through manual SQL.
+- B03 added the non-null `users.password_hash` column through migration `20261005150000_add_user_password_hash`.
+- B03 authentication uses Argon2id password hashes and 15-minute JWT access tokens. `JWT_SECRET` is required and must have at least 32 characters; no refresh-token flow was added.
+- B03 authorization demonstration: `POST /auth/login` issues an access token for valid active credentials; `GET /auth/admin` requires a valid administrator token. Missing and veterinarian credentials are rejected with `401` and `403`, respectively.
+- B03 administrator bootstrap is opt-in only: `npm run seed:admin` reads `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` from the local environment, creates an administrator only when none exists, and is not run by application startup.
+- TDD evidence for B03:
+  - RED: `npm test -- --runInBand test/auth.e2e-spec.ts` failed before the authentication implementation (1 suite failed; 0 tests executed) because `argon2` and `PrismaService` did not yet exist.
+  - GREEN: `npm run test:auth` passed after implementation (1 suite passed; 2 tests passed), covering valid credentials and `401`/`403` protected-endpoint enforcement.
+  - REFACTOR: corrected the build configuration so generated Prisma code stays within `src` and `nest build` refreshes the executable output; no behavior refactor was warranted.
+- Observed B03 checks:
+  - Focused authentication tests: `npm run test:auth` — passed (1 suite, 2 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (3 suites, 4 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed.
+  - Migration deployment and status: `npm run prisma:migrate:deploy` found no pending migrations; `npx prisma migrate status` reported that the database schema is up to date.
+  - Safe runtime scenario: with local environment credentials, `POST /auth/login` returned `201` and a token that received `200` from `GET /auth/admin`; no secrets or tokens were printed.
+- B03 rollback boundary: remove `backend/src/auth/`, `backend/src/prisma/`, migration `20261005150000_add_user_password_hash`, generated-client configuration and authentication dependencies, then revert the B03 environment, build, test, and task evidence changes. B01 health and the B02 relational schema remain independently restorable after restoring the `users` table definition.
+- B03 delivery: one cohesive work-unit commit including the migration, authentication/RBAC behavior, focused tests, dependency lockfile, and this task evidence. The final commit ID is reported in the delivery record.
 
 ## Next step
-Implement B03: secure authentication and server-side role-based authorization.
+Implement B04: owners, pets, appointments, and appointment requests API verticals.

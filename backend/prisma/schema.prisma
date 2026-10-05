@@ -1,3 +1,8 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
 datasource db {
   provider = "postgresql"
 }
@@ -43,6 +48,7 @@ model User {
   id        Int        @id @default(autoincrement())
   name      String
   email     String     @unique
+  passwordHash String  @map("password_hash")
   status    UserStatus @default(ACTIVE)
   roleId    Int        @map("role_id")
   createdAt DateTime   @default(now()) @map("created_at")

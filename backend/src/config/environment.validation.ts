@@ -1,6 +1,7 @@
 export type Environment = {
   CORS_ORIGINS: string;
   DATABASE_URL: string;
+  JWT_SECRET: string;
   NODE_ENV: 'development' | 'test' | 'production';
   PORT: number;
 };
@@ -34,10 +35,16 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     throw new Error('CORS_ORIGINS must contain at least one origin.');
   }
 
+  const jwtSecret = String(config.JWT_SECRET ?? '');
+  if (jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must contain at least 32 characters.');
+  }
+
   return {
     NODE_ENV: nodeEnvironment as Environment['NODE_ENV'],
     PORT: port,
     CORS_ORIGINS: origins.join(','),
     DATABASE_URL: databaseUrl,
+    JWT_SECRET: jwtSecret,
   };
 }
