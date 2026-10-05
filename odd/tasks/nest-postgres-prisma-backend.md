@@ -32,7 +32,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; multiple modules and tests.
   - Acceptance: credentials are hashed; protected endpoints reject unauthenticated or unauthorized requests.
   - Checks: focused auth and authorization tests.
-- [ ] B04 — Implement owners, pets, appointments, and appointment requests API verticals.
+- [x] B04 — Implement owners, pets, appointments, and appointment requests API verticals.
   - Route: delegated; multiple modules and API tests.
   - Acceptance: validated CRUD and scheduling conflict protection are available through the API.
   - Checks: focused e2e/integration tests.
@@ -49,7 +49,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; authorization, assigned-veterinarian validation, status transitions, and database conflict mapping are coupled.
     - Acceptance: staff can manage appointments without double-booking active slots.
     - Checks: focused Jest e2e tests and PostgreSQL conflict verification.
-  - [ ] B04.4 — Add owner-scoped appointment requests and staff resolution lifecycle.
+  - [x] B04.4 — Add owner-scoped appointment requests and staff resolution lifecycle.
     - Route: delegated; owner authorization, request-to-appointment transaction, and resolution rules span multiple modules.
     - Acceptance: owners can request appointments only for their pets; staff can accept or reject them atomically.
     - Checks: focused Jest e2e tests and transactional integration verification.
@@ -166,5 +166,19 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - PostgreSQL conflict verification: `npm run test:appointment-persistence` — passed. The transactional script verified duplicate active veterinarian slots are rejected and a cancelled appointment may share the same slot.
 - B04.3 rollback boundary: remove `backend/src/appointments/`, its import from `backend/src/app.module.ts`, `backend/test/appointments.e2e-spec.ts`, and this B04.3 evidence. B01–B04.2 behavior and B04.1 persistence remain independent.
 
+- B04.4 adds owner-scoped appointment requests at `/appointment-requests` and staff resolution at `/appointment-requests/staff`, `/appointment-requests/:id/accept`, and `/appointment-requests/:id/reject`. Owners resolve through their linked owner record and can only use their own pets; staff acceptance creates the appointment inside the same transaction and conditional `updateMany` claims only `PENDING` requests.
+- TDD evidence for B04.4:
+  - RED: `npm test -- --runInBand test/appointment-requests.e2e-spec.ts` failed before implementation (1 suite failed; 4 tests failed) because `/appointment-requests` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the appointment-requests module, DTOs, controller, and transactional service, the focused command passed (1 suite, 4 tests), covering authentication/role boundaries, owner-only creation and reads, atomic acceptance with scheduling-conflict mapping, and validated rejection with double-resolution protection.
+  - REFACTOR: removed explicit `any` transaction typing in favor of inferred Prisma transaction types and corrected a supertest asymmetric-matcher assertion in the focused test; the focused suite passed again (1 suite, 4 tests).
+- Observed B04.4 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/appointment-requests.e2e-spec.ts` — passed (1 suite, 4 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (7 suites, 18 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - PostgreSQL integration: `npm run test:appointment-persistence` — passed; script executed successfully.
+- B04.4 rollback boundary: remove `backend/src/appointment-requests/`, its import from `backend/src/app.module.ts`, `backend/test/appointment-requests.e2e-spec.ts`, and this B04.4 evidence. B01–B04.3 behavior and persistence remain independent.
+
 ## Next step
-Implement B04.4: owner-scoped appointment requests and staff resolution lifecycle.
+Run native review for B04.4, then continue with B05.
