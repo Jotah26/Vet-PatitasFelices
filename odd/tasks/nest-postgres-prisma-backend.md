@@ -45,7 +45,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; two API verticals with DTOs, services, controllers, authorization, and tests.
     - Acceptance: normalized inputs, ownership integrity, uniqueness conflicts, and restrictive deletion behavior are exposed safely.
     - Checks: focused Jest e2e tests, lint, build.
-  - [ ] B04.3 — Add authenticated staff appointment lifecycle endpoints.
+  - [x] B04.3 — Add authenticated staff appointment lifecycle endpoints.
     - Route: delegated; authorization, assigned-veterinarian validation, status transitions, and database conflict mapping are coupled.
     - Acceptance: staff can manage appointments without double-booking active slots.
     - Checks: focused Jest e2e tests and PostgreSQL conflict verification.
@@ -151,6 +151,20 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Backend build: `npm run build` — passed with no output.
   - Prisma validation: `npm run prisma:validate` — passed; schema valid.
 - B04.2 rollback boundary: remove `backend/src/owners/`, `backend/src/pets/`, `backend/src/auth/staff-roles.ts`, the guard exports from `backend/src/auth/auth.module.ts`, their imports from `backend/src/app.module.ts`, the focused e2e test, and this B04.2 evidence. B01–B04.1 persistence and authentication behavior remain independent.
+- B04.3 adds JWT- and role-protected staff appointment endpoints at `/appointments` for creation, reads, updates, explicit status changes, and cancellation. Assigned users must be active veterinarians, and Prisma scheduling conflicts return HTTP `409`.
+- Appointment lifecycle transitions are `PENDING → CONFIRMED → IN_ROOM → ATTENDED`, with cancellation allowed from each non-terminal state. Attended and cancelled appointments are terminal.
+- TDD evidence for B04.3:
+  - RED: `npm test -- --runInBand test/appointments.e2e-spec.ts` failed before the endpoint implementation (1 suite failed; 4 tests failed) because `/appointments` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the appointment module, DTOs, controller, and service, the focused command passed (1 suite, 4 tests), covering authorization, inactive/non-veterinarian assignment, lifecycle updates, cancellation, cancelled-slot reuse, and active-slot conflicts.
+  - REFACTOR: centralized status-transition validation in `requireStatusTransition`; the focused suite passed again (1 suite, 4 tests).
+- Observed B04.3 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/appointments.e2e-spec.ts` — passed (1 suite, 4 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (6 suites, 14 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - PostgreSQL conflict verification: `npm run test:appointment-persistence` — passed. The transactional script verified duplicate active veterinarian slots are rejected and a cancelled appointment may share the same slot.
+- B04.3 rollback boundary: remove `backend/src/appointments/`, its import from `backend/src/app.module.ts`, `backend/test/appointments.e2e-spec.ts`, and this B04.3 evidence. B01–B04.2 behavior and B04.1 persistence remain independent.
 
 ## Next step
-Implement B04.3: authenticated staff appointment lifecycle endpoints.
+Implement B04.4: owner-scoped appointment requests and staff resolution lifecycle.
