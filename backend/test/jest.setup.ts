@@ -1,0 +1,1 @@
+process.env.DATABASE_URL ??= 'postgresql://test_user:test_password@localhost:5432/vet_patitasfelices_test';

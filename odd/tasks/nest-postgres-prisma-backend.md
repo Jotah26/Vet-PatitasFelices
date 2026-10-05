@@ -24,7 +24,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; implementation spans multiple non-trivial files.
   - Acceptance: API starts locally, health endpoint responds, and baseline checks run.
   - Checks: selected test runner, lint, build.
-- [ ] B02 — Model the PostgreSQL/Prisma schema and migrations for users, owners, pets, and roles.
+- [x] B02 — Model the PostgreSQL/Prisma schema and migrations for users, owners, pets, and roles.
   - Route: delegated; data model and migration are non-trivial coupled files.
   - Acceptance: migrations apply and relational integrity is verified.
   - Checks: Prisma validation, migration test, focused service tests.
@@ -60,6 +60,27 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Backend build: `npm run build` — passed with no output.
   - Runtime: started `node dist/main.js` with `PORT=3100` and `CORS_ORIGINS=http://localhost:5173`; `GET http://127.0.0.1:3100/health` returned `200`, `{"status":"ok"}`, and `Access-Control-Allow-Origin: http://localhost:5173`.
 - Rollback boundary: remove `backend/` and this B01 evidence only; no frontend or subsequent backend-task behavior is affected.
+- B02 completed the Prisma 7 PostgreSQL foundation through `DATABASE_URL`, including the initial migration for roles, users, owners, and pets.
+- B02 schema decisions:
+  - The role keys, user statuses, pet species, and pet sexes preserve the frontend domain values.
+  - User email, owner document number, owner email, owner user link, and role key are unique.
+  - Foreign keys from users to roles, owners to optional users, and pets to owners use `ON DELETE RESTRICT`; future clinical records can therefore add restrictive pet references without changing delete semantics.
+  - Timestamps exist on every initial model. No Nest Prisma module/service was added because B02 has no database-backed behavior yet.
+- TDD evidence for B02:
+  - RED: `npm test -- --runInBand test/environment.validation.e2e-spec.ts` failed because missing `DATABASE_URL` did not throw the expected PostgreSQL connection-string validation error (1 suite failed; 1 test failed).
+  - GREEN: after validation and a Jest-only placeholder `DATABASE_URL` were added, the same command passed (1 suite passed; 1 test passed) without connecting to PostgreSQL.
+  - REFACTOR: no refactor was warranted; the validation remains a small boundary check.
+- Observed B02 checks:
+  - Focused Jest test: `npm test -- --runInBand test/environment.validation.e2e-spec.ts` — passed (1 suite, 1 test).
+  - All backend tests: `npm test -- --runInBand` — passed (2 suites, 2 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: with a syntactically valid, non-running PostgreSQL `DATABASE_URL`, `npm run prisma:validate` — passed; schema valid.
+  - Migration SQL: `prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script` generated the initial PostgreSQL migration SQL without connecting to a database.
+  - Migration deployment: `npm run prisma:migrate:deploy` — verified against PostgreSQL database `vet_patitas`, schema `public`; 1 migration found and no migrations remained pending. `npx prisma migrate status` reported that the database schema is up to date.
+  - Database relational verification: a transaction-scoped `prisma db execute` check passed and rolled back. It confirmed the unique role key, user email, owner document number, owner email, and owner user-link constraints, plus restrictive foreign keys from users to roles, owners to users, and pets to owners.
+- B02 rollback boundary: remove `backend/prisma.config.ts`, `backend/prisma/`, the Prisma dependency and scripts, the database environment validation/test setup, and this B02 evidence. B01 health behavior remains independently restorable.
+- B02 delivery: one cohesive work-unit commit, including the generated dependency lockfile and task evidence.
 
 ## Next step
-Implement B02: model the PostgreSQL/Prisma schema and migrations for users, owners, pets, and roles.
+Implement B03: secure authentication and server-side role-based authorization.

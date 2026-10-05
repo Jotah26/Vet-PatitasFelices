@@ -1,0 +1,92 @@
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleKey {
+  ADMINISTRATOR @map("admin")
+  VETERINARIAN  @map("vet")
+  RECEPTIONIST  @map("recepcionista")
+  ASSISTANT     @map("asistente")
+  OWNER         @map("propietario")
+}
+
+enum UserStatus {
+  ACTIVE   @map("Activo")
+  INACTIVE @map("Inactivo")
+}
+
+enum PetSpecies {
+  DOG     @map("Perro")
+  CAT     @map("Gato")
+  BIRD    @map("Ave")
+  RODENT  @map("Roedor")
+  REPTILE @map("Reptil")
+  OTHER   @map("Otro")
+}
+
+enum PetSex {
+  MALE   @map("Macho")
+  FEMALE @map("Hembra")
+}
+
+model Role {
+  id        Int      @id @default(autoincrement())
+  key       RoleKey  @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  users     User[]
+
+  @@map("roles")
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  name      String
+  email     String     @unique
+  status    UserStatus @default(ACTIVE)
+  roleId    Int        @map("role_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  owner     Owner?
+  role      Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model Owner {
+  id             Int      @id @default(autoincrement())
+  name           String
+  documentNumber String   @unique @map("document_number")
+  phone          String
+  email          String   @unique
+  address        String
+  userId         Int?     @unique @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  pets           Pet[]
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("owners")
+}
+
+model Pet {
+  id                 Int        @id @default(autoincrement())
+  name               String
+  species            PetSpecies
+  breed              String
+  sex                PetSex
+  age                String
+  color              String
+  weight             String
+  isNeutered         Boolean    @default(false) @map("is_neutered")
+  medicalBackground  String     @map("medical_background")
+  photoDataUrl       String?    @map("photo_data_url")
+  ownerId            Int        @map("owner_id")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+  owner              Owner      @relation(fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([ownerId])
+  @@map("pets")
+}
