@@ -11,6 +11,8 @@ describe('Authentication and authorization', () => {
   beforeAll(async () => {
     const administratorHash = await argon2.hash('AdministratorPass123!');
     const veterinarianHash = await argon2.hash('VeterinarianPass123!');
+    const legacyUserHash =
+      '$argon2id$v=19$m=65536,p=4,t=3$RZ99e4V6pojbFbjOKCif7Q$8l1eAFqbMU75MzI9vawLMjRy+kkEmsEspIGhAgfrJd0';
     const prisma = {
       user: {
         findUnique: jest.fn(({ where: { email } }: { where: { email: string } }) => {
@@ -33,6 +35,17 @@ describe('Authentication and authorization', () => {
               passwordHash: veterinarianHash,
               status: 'ACTIVE',
               role: { key: 'VETERINARIAN' },
+            };
+          }
+
+          if (email === 'legacy@example.test') {
+            return {
+              id: 3,
+              email,
+              name: 'Legacy user',
+              passwordHash: legacyUserHash,
+              status: 'ACTIVE',
+              role: { key: 'RECEPTIONIST' },
             };
           }
 
@@ -74,6 +87,11 @@ describe('Authentication and authorization', () => {
     await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: 'admin@example.test', password: 'wrong-password' })
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'legacy@example.test', password: 'not-a-legacy-password' })
       .expect(401);
   });
 

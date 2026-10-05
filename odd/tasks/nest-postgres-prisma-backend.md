@@ -82,7 +82,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
 - B02 rollback boundary: remove `backend/prisma.config.ts`, `backend/prisma/`, the Prisma dependency and scripts, the database environment validation/test setup, and this B02 evidence. B01 health behavior remains independently restorable.
 - B02 delivery: one cohesive work-unit commit, including the generated dependency lockfile and task evidence.
 - B03 bootstrap decision: create the first administrator through an explicit local environment-driven command, not on every application startup and not through manual SQL.
-- B03 added the non-null `users.password_hash` column through migration `20261005150000_add_user_password_hash`.
+- B03 migration `20261005150000_add_user_password_hash` adds `users.password_hash` as nullable, backfills existing rows with an Argon2id hash of a discarded cryptographically random secret, and then makes the column non-null. Existing users cannot authenticate until their password is explicitly reset.
 - B03 authentication uses Argon2id password hashes and 15-minute JWT access tokens. `JWT_SECRET` is required and must have at least 32 characters; no refresh-token flow was added.
 - B03 authorization demonstration: `POST /auth/login` issues an access token for valid active credentials; `GET /auth/admin` requires a valid administrator token. Missing and veterinarian credentials are rejected with `401` and `403`, respectively.
 - B03 administrator bootstrap is opt-in only: `npm run seed:admin` reads `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` from the local environment, creates an administrator only when none exists, and is not run by application startup.
@@ -100,6 +100,11 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Safe runtime scenario: with local environment credentials, `POST /auth/login` returned `201` and a token that received `200` from `GET /auth/admin`; no secrets or tokens were printed.
 - B03 rollback boundary: remove `backend/src/auth/`, `backend/src/prisma/`, migration `20261005150000_add_user_password_hash`, generated-client configuration and authentication dependencies, then revert the B03 environment, build, test, and task evidence changes. B01 health and the B02 relational schema remain independently restorable after restoring the `users` table definition.
 - B03 delivery: one cohesive work-unit commit including the migration, authentication/RBAC behavior, focused tests, dependency lockfile, and this task evidence. The final commit ID is reported in the delivery record.
+- B03 migration correction: the backward-compatible path is validated with a legacy user present before the password-hash migration. It preserves the non-null Prisma model while preventing any default usable credential for migrated users.
+  - Focused auth test: `npm run test:auth` — passed (1 suite, 2 tests), including rejection of the migration backfill hash with an arbitrary password.
+  - Prisma validation: `npm run prisma:validate` — passed.
+  - Local PostgreSQL deployment: `npm run prisma:migrate:deploy` and `npx prisma migrate status` — passed; no migrations were pending and the schema was up to date.
+  - Local PostgreSQL migration path: a rollback-scoped transaction removed the existing column, inserted a legacy user, applied the nullable-add/backfill/non-null sequence, confirmed the backfill and non-null constraint, then rolled back — passed.
 
 ## Next step
 Implement B04: owners, pets, appointments, and appointment requests API verticals.
