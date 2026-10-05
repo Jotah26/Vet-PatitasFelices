@@ -41,7 +41,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; schema, migration, and integration verification require coupled database work.
     - Acceptance: non-cancelled veterinarian slots are unique at the PostgreSQL layer and request resolution can link an appointment.
     - Checks: Prisma validation, migration deployment, relational/conflict integration verification.
-  - [ ] B04.2 — Add authenticated staff CRUD endpoints for owners and pets.
+  - [x] B04.2 — Add authenticated staff CRUD endpoints for owners and pets.
     - Route: delegated; two API verticals with DTOs, services, controllers, authorization, and tests.
     - Acceptance: normalized inputs, ownership integrity, uniqueness conflicts, and restrictive deletion behavior are exposed safely.
     - Checks: focused Jest e2e tests, lint, build.
@@ -138,6 +138,19 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Backend lint: `npm run lint` — passed with no output.
   - Backend build: `npm run build` — passed with no output.
 - B04.1 rollback boundary: revert migration `20261005160000_add_appointments_and_requests` only in a fresh database or through a compensating migration in an already deployed database; remove the appointment schema relations, focused test, and this B04.1 evidence. No API endpoint behavior was introduced.
+- B04.2 adds JWT- and role-protected staff CRUD endpoints at `/owners` and `/pets`. The four staff roles may access them; owner-role tokens and unauthenticated requests are rejected. Owner emails are trimmed and lowercased, and the services map Prisma uniqueness, restrictive foreign-key, and record-not-found errors to HTTP `409` and `404` responses.
+- Pet creation and owner reassignment require an existing owner before persistence. Owner and pet deletes retain the PostgreSQL restrictive foreign-key behavior and return `409` when dependent records prevent deletion.
+- TDD evidence for B04.2:
+  - RED: `npm test -- --runInBand test/owners-pets.e2e-spec.ts` failed before the verticals existed (1 suite failed; 5 tests failed), returning `404` instead of the expected protected CRUD statuses.
+  - GREEN: after implementing the modules, DTOs, controllers, services, and exported guards, the focused command passed (1 suite, 5 tests), covering authorization, validation, CRUD, email normalization, uniqueness, owner existence, ownership reassignment protection, and restrictive deletes.
+  - REFACTOR: centralized the allowed staff roles in `auth/staff-roles.ts`; the focused suite passed again (1 suite, 5 tests).
+- Observed B04.2 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/owners-pets.e2e-spec.ts` — passed (1 suite, 5 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (5 suites, 10 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+- B04.2 rollback boundary: remove `backend/src/owners/`, `backend/src/pets/`, `backend/src/auth/staff-roles.ts`, the guard exports from `backend/src/auth/auth.module.ts`, their imports from `backend/src/app.module.ts`, the focused e2e test, and this B04.2 evidence. B01–B04.1 persistence and authentication behavior remain independent.
 
 ## Next step
-Implement B04.2: authenticated staff CRUD endpoints for owners and pets.
+Implement B04.3: authenticated staff appointment lifecycle endpoints.
