@@ -57,6 +57,27 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; multiple non-trivial modules; split into coherent work-unit commits.
   - Acceptance: clinical workflows are transactional and sensitive files are private.
   - Checks: focused integration tests per vertical.
+  - Delivery strategy: ask-on-risk. Each vertical is independently committed and assessed.
+  - [x] B05.1 — Add clinical persistence and staff endpoints for consultations, vaccines, and prescriptions.
+    - Route: delegated; schema, migration, and transactional attention cascade span multiple modules.
+    - Acceptance: staff can register an attention (consultation + applied vaccines + prescription) atomically for a pet.
+    - Checks: focused Jest e2e tests, lint, build, Prisma validation.
+  - [ ] B05.2 — Add private clinical attachments linked to consultations.
+    - Route: delegated; private storage, consultation linkage, and authorization span multiple modules.
+    - Acceptance: staff can attach and read files only through authorized consultation access.
+    - Checks: focused Jest e2e tests and privacy verification.
+  - [ ] B05.3 — Add inventory endpoints for medications and tariff services.
+    - Route: delegated; stock rules and service catalog span multiple modules.
+    - Acceptance: staff can manage stock and catalog with validated movements.
+    - Checks: focused Jest e2e tests.
+  - [ ] B05.4 — Add payment endpoints for cash-desk charges.
+    - Route: delegated; charge integrity and method validation span multiple modules.
+    - Acceptance: staff can register and read payments with validated methods and amounts.
+    - Checks: focused Jest e2e tests.
+  - [ ] B05.5 — Add reminder computation or persistence for vaccines and appointments.
+    - Route: delegated; derived scheduling rules span existing modules.
+    - Acceptance: due vaccine and appointment reminders are exposed per pet or owner.
+    - Checks: focused Jest e2e tests.
 - [ ] B06 — Migrate the React data provider from localStorage to authenticated API clients incrementally.
   - Route: delegated; frontend and API integration changes.
   - Acceptance: migrated workflows no longer write business data to localStorage.
@@ -180,5 +201,21 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - PostgreSQL integration: `npm run test:appointment-persistence` — passed; script executed successfully.
 - B04.4 rollback boundary: remove `backend/src/appointment-requests/`, its import from `backend/src/app.module.ts`, `backend/test/appointment-requests.e2e-spec.ts`, and this B04.4 evidence. B01–B04.3 behavior and persistence remain independent.
 
+- B05.1 adds clinical persistence (`Consultation`, `Vaccine`, `Prescription`, `PrescriptionItem`) with restrictive foreign keys, plus staff-only endpoints: `POST /clinical/attentions` registers consultation, vaccines, and prescription atomically in one transaction; `GET /consultations`, `GET /vaccines`, and `GET /prescriptions` support optional `petId` filtering; standalone `POST /vaccines` and `POST /prescriptions` validate pet, veterinarian, and consultation references.
+- B05.1 migration `20261006000000_add_clinical_care` is forward-only and was deployed to local PostgreSQL; attachments, stock movements, payments, and reminders stay out of scope for B05.2–B05.5.
+- TDD evidence for B05.1:
+  - RED: `npm test -- --runInBand test/clinical.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/clinical/attentions` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the clinical module, DTOs, controllers, and transactional service, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, atomic attention registration with nested reads, and pet/veterinarian validation.
+  - REFACTOR: replaced `any` mocks with `MockRecord` types, removed an unused validator import, and simplified the optional query pipe; lint passed and the focused suite passed again (1 suite, 3 tests).
+- Observed B05.1 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/clinical.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (8 suites, 21 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration deployment and status: `npm run prisma:migrate:deploy` — no pending migrations; `npx prisma migrate status` — database schema is up to date (4 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/clinical-persistence.integration.sql` — passed and rolled back; confirmed the 4 clinical tables, 9 RESTRICT foreign keys, and attention-type enum labels.
+- B05.1 rollback boundary: revert migration `20261006000000_add_clinical_care` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/clinical/`, its import from `backend/src/app.module.ts`, `backend/test/clinical.e2e-spec.ts`, `backend/test/clinical-persistence.integration.sql`, and this B05.1 evidence. B01–B04 behavior remains independent.
+
 ## Next step
-Run native review for B04.4, then continue with B05.
+Run native review for B05.1, then continue with B05.2.

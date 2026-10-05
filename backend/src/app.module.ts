@@ -5,6 +5,7 @@ import { HealthController } from './health/health.controller';
 import { AuthModule } from './auth/auth.module';
 import { AppointmentRequestsModule } from './appointment-requests/appointment-requests.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { ClinicalModule } from './clinical/clinical.module';
 import { OwnersModule } from './owners/owners.module';
 import { PetsModule } from './pets/pets.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -20,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     AppointmentsModule,
     AppointmentRequestsModule,
+    ClinicalModule,
     OwnersModule,
     PetsModule,
   ],

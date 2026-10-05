@@ -48,6 +48,25 @@ enum AppointmentRequestResolution {
   REJECTED @map("Rechazada")
 }
 
+enum ClinicalAttentionType {
+  GENERAL_CONSULTATION @map("Consulta general")
+  VACCINATION          @map("Vacunación")
+  FOLLOW_UP            @map("Control / seguimiento")
+  SURGERY              @map("Cirugía")
+  EMERGENCY            @map("Urgencia")
+  DEWORMING            @map("Desparasitación")
+}
+
+enum ConsultationStatus {
+  COMPLETED   @map("Completada")
+  IN_FOLLOWUP @map("En seguimiento")
+}
+
+enum PrescriptionStatus {
+  ISSUED    @map("Emitida")
+  DISPENSED @map("Dispensada")
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   key       RoleKey  @unique
@@ -69,7 +88,10 @@ model User {
   updatedAt DateTime   @updatedAt @map("updated_at")
   owner     Owner?
   role      Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  appointmentsAsVeterinarian Appointment[] @relation("AppointmentVeterinarian")
+  appointmentsAsVeterinarian   Appointment[]  @relation("AppointmentVeterinarian")
+  consultationsAsVeterinarian  Consultation[] @relation("ConsultationVeterinarian")
+  vaccinesAdministered         Vaccine[]      @relation("VaccineAdministrator")
+  prescriptionsAsVeterinarian  Prescription[] @relation("PrescriptionVeterinarian")
 
   @@index([roleId])
   @@map("users")
@@ -110,6 +132,9 @@ model Pet {
   owner              Owner      @relation(fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   appointments        Appointment[]
   appointmentRequests AppointmentRequest[]
+  consultations       Consultation[]
+  vaccines            Vaccine[]
+  prescriptions       Prescription[]
 
   @@index([ownerId])
   @@map("pets")
@@ -131,6 +156,83 @@ model Appointment {
   @@index([petId])
   @@index([veterinarianId])
   @@map("appointments")
+}
+
+model Consultation {
+  id               Int                   @id @default(autoincrement())
+  petId            Int                   @map("pet_id")
+  veterinarianId   Int                   @map("veterinarian_id")
+  occurredAt       DateTime              @default(now()) @map("occurred_at")
+  type             ClinicalAttentionType
+  diagnosis        String
+  treatment        String
+  recommendations  String
+  status           ConsultationStatus    @default(COMPLETED)
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  pet              Pet                   @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian     User                  @relation("ConsultationVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vaccines         Vaccine[]
+  prescriptions    Prescription[]
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@map("consultations")
+}
+
+model Vaccine {
+  id               Int          @id @default(autoincrement())
+  petId            Int          @map("pet_id")
+  consultationId   Int?         @map("consultation_id")
+  name             String
+  administeredAt   DateTime     @default(now()) @map("administered_at")
+  nextDueAt        DateTime?    @map("next_due_at")
+  administeredById Int?         @map("administered_by_id")
+  batch            String?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  pet              Pet          @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  consultation     Consultation? @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  administeredBy   User?        @relation("VaccineAdministrator", fields: [administeredById], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([petId])
+  @@index([consultationId])
+  @@map("vaccines")
+}
+
+model Prescription {
+  id              Int                @id @default(autoincrement())
+  petId           Int                @map("pet_id")
+  veterinarianId  Int                @map("veterinarian_id")
+  consultationId  Int?               @map("consultation_id")
+  issuedAt        DateTime           @default(now()) @map("issued_at")
+  instructions    String?
+  status          PrescriptionStatus @default(ISSUED)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  pet             Pet                @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian    User               @relation("PrescriptionVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  consultation    Consultation?      @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  items           PrescriptionItem[]
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@index([consultationId])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             Int          @id @default(autoincrement())
+  prescriptionId Int          @map("prescription_id")
+  medication     String
+  dose           String
+  days           Int
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
 }
 
 model AppointmentRequest {
