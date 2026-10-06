@@ -92,6 +92,7 @@ model User {
   consultationsAsVeterinarian  Consultation[] @relation("ConsultationVeterinarian")
   vaccinesAdministered         Vaccine[]      @relation("VaccineAdministrator")
   prescriptionsAsVeterinarian  Prescription[] @relation("PrescriptionVeterinarian")
+  attachmentsUploaded          ClinicalAttachment[] @relation("AttachmentUploader")
 
   @@index([roleId])
   @@map("users")
@@ -174,6 +175,7 @@ model Consultation {
   veterinarian     User                  @relation("ConsultationVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   vaccines         Vaccine[]
   prescriptions    Prescription[]
+  attachments      ClinicalAttachment[]
 
   @@index([petId])
   @@index([veterinarianId])
@@ -210,8 +212,8 @@ model Prescription {
   status          PrescriptionStatus @default(ISSUED)
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
-  pet             Pet                @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  veterinarian    User               @relation("PrescriptionVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pet              Pet                @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian     User               @relation("PrescriptionVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   consultation    Consultation?      @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   items           PrescriptionItem[]
 
@@ -233,6 +235,22 @@ model PrescriptionItem {
 
   @@index([prescriptionId])
   @@map("prescription_items")
+}
+
+model ClinicalAttachment {
+  id             Int          @id @default(autoincrement())
+  consultationId Int          @map("consultation_id")
+  fileName       String       @map("file_name")
+  mimeType       String       @map("mime_type")
+  dataUrl        String       @map("data_url")
+  uploadedById   Int?         @map("uploaded_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  uploadedBy     User?        @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([consultationId])
+  @@map("clinical_attachments")
 }
 
 model AppointmentRequest {

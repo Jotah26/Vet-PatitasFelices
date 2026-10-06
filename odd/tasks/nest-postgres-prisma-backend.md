@@ -62,7 +62,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; schema, migration, and transactional attention cascade span multiple modules.
     - Acceptance: staff can register an attention (consultation + applied vaccines + prescription) atomically for a pet.
     - Checks: focused Jest e2e tests, lint, build, Prisma validation.
-  - [ ] B05.2 — Add private clinical attachments linked to consultations.
+  - [x] B05.2 — Add private clinical attachments linked to consultations.
     - Route: delegated; private storage, consultation linkage, and authorization span multiple modules.
     - Acceptance: staff can attach and read files only through authorized consultation access.
     - Checks: focused Jest e2e tests and privacy verification.
@@ -217,5 +217,21 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - PostgreSQL verification: `npx prisma db execute --file test/clinical-persistence.integration.sql` — passed and rolled back; confirmed the 4 clinical tables, 9 RESTRICT foreign keys, and attention-type enum labels.
 - B05.1 rollback boundary: revert migration `20261006000000_add_clinical_care` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/clinical/`, its import from `backend/src/app.module.ts`, `backend/test/clinical.e2e-spec.ts`, `backend/test/clinical-persistence.integration.sql`, and this B05.1 evidence. B01–B04 behavior remains independent.
 
+- B05.2 adds the `ClinicalAttachment` model with restrictive foreign keys to consultations and uploading users, plus staff-only endpoints: `POST /consultations/:id/attachments` validates file name, MIME type, and `data:` URL payloads; `GET /consultations/:id/attachments` lists metadata without payloads; `GET /attachments/:id` reads the private payload; `DELETE /attachments/:id` removes it. Every route requires an existing consultation, so files are never reachable outside their owning record.
+- B05.2 migration `20261006010000_add_clinical_attachments` is forward-only and was deployed to local PostgreSQL.
+- TDD evidence for B05.2:
+  - RED: `npm test -- --runInBand test/clinical-attachments.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/consultations/1/attachments` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the attachments service and controllers, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, upload/list/read/delete through the owning consultation, and unknown-consultation plus invalid-payload rejection.
+  - REFACTOR: no behavior refactor was warranted; the focused suite, lint, and build passed on the final code.
+- Observed B05.2 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/clinical-attachments.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (9 suites, 24 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration status: `npx prisma migrate status` — database schema is up to date (5 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/clinical-attachments-persistence.integration.sql` — passed and rolled back; confirmed the attachments table and both RESTRICT foreign keys.
+- B05.2 rollback boundary: revert migration `20261006010000_add_clinical_attachments` only in a fresh database or through a compensating migration in an already deployed database; remove the attachments service, controllers, DTO, their wiring in `backend/src/clinical/clinical.module.ts`, the `ClinicalAttachment` schema relations, `backend/test/clinical-attachments.e2e-spec.ts`, `backend/test/clinical-attachments-persistence.integration.sql`, and this B05.2 evidence. B01–B05.1 behavior remains independent.
+
 ## Next step
-Run native review for B05.1, then continue with B05.2.
+Continue with B05.3.
