@@ -67,6 +67,15 @@ enum PrescriptionStatus {
   DISPENSED @map("Dispensada")
 }
 
+enum MedicationCategory {
+  ANTIALLERGIC @map("Antialérgico")
+  ANTIBIOTIC   @map("Antibiótico")
+  ANTIPARASITIC @map("Antiparasitario")
+  FLEA         @map("Antipulgas")
+  SUPPLY       @map("Insumo")
+  VACCINE      @map("Vacuna")
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   key       RoleKey  @unique
@@ -251,6 +260,36 @@ model ClinicalAttachment {
 
   @@index([consultationId])
   @@map("clinical_attachments")
+}
+
+model Medication {
+  id              Int                @id @default(autoincrement())
+  name            String
+  category        MedicationCategory
+  presentation    String
+  stock           Int                @default(0)
+  minStock        Int                @default(0) @map("min_stock")
+  price           Float
+  activeIngredient String?           @map("active_ingredient")
+  batch           String?
+  expiresAt       DateTime?          @map("expires_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@map("medications")
+}
+
+model Service {
+  id              Int      @id @default(autoincrement())
+  concept         String
+  description     String
+  price           Float
+  durationMinutes Int      @map("duration_minutes")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("services")
 }
 
 model AppointmentRequest {

@@ -66,7 +66,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; private storage, consultation linkage, and authorization span multiple modules.
     - Acceptance: staff can attach and read files only through authorized consultation access.
     - Checks: focused Jest e2e tests and privacy verification.
-  - [ ] B05.3 — Add inventory endpoints for medications and tariff services.
+  - [x] B05.3 — Add inventory endpoints for medications and tariff services.
     - Route: delegated; stock rules and service catalog span multiple modules.
     - Acceptance: staff can manage stock and catalog with validated movements.
     - Checks: focused Jest e2e tests.
@@ -233,5 +233,21 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - PostgreSQL verification: `npx prisma db execute --file test/clinical-attachments-persistence.integration.sql` — passed and rolled back; confirmed the attachments table and both RESTRICT foreign keys.
 - B05.2 rollback boundary: revert migration `20261006010000_add_clinical_attachments` only in a fresh database or through a compensating migration in an already deployed database; remove the attachments service, controllers, DTO, their wiring in `backend/src/clinical/clinical.module.ts`, the `ClinicalAttachment` schema relations, `backend/test/clinical-attachments.e2e-spec.ts`, `backend/test/clinical-attachments-persistence.integration.sql`, and this B05.2 evidence. B01–B05.1 behavior remains independent.
 
+- B05.3 adds the `Medication` and `Service` models plus staff-only endpoints: `/medications` with full CRUD, atomic `POST /medications/:id/restock` stock increments, and conditional `POST /medications/:id/dispense` decrements that return `409` on insufficient stock and `404` on unknown records; `/services` with full CRUD where creation defaults to active, mirroring the frontend tarifario behavior.
+- B05.3 migration `20261006020000_add_inventory` is forward-only and was deployed to local PostgreSQL.
+- TDD evidence for B05.3:
+  - RED: `npm test -- --runInBand test/inventory.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/medications` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the medications and services modules, DTOs, controllers, and services, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, validated catalog management with atomic restock and guarded dispense, and tariff defaults with updates and deletes.
+  - REFACTOR: corrected the service-create mock so explicit `undefined` keeps the Prisma database default instead of shadowing it; the focused suite passed again (1 suite, 3 tests).
+- Observed B05.3 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/inventory.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (10 suites, 27 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration status: `npx prisma migrate status` — database schema is up to date (6 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/inventory-persistence.integration.sql` — passed and rolled back; confirmed the medications and services tables plus medication-category enum labels.
+- B05.3 rollback boundary: revert migration `20261006020000_add_inventory` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/medications/`, `backend/src/services/`, their imports from `backend/src/app.module.ts`, the `Medication` and `Service` schema models, `backend/test/inventory.e2e-spec.ts`, `backend/test/inventory-persistence.integration.sql`, and this B05.3 evidence. B01–B05.2 behavior remains independent.
+
 ## Next step
-Continue with B05.3.
+Continue with B05.4.
