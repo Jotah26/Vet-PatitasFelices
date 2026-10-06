@@ -28,18 +28,56 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; data model and migration are non-trivial coupled files.
   - Acceptance: migrations apply and relational integrity is verified.
   - Checks: Prisma validation, migration test, focused service tests.
-- [ ] B03 — Implement secure authentication and server-side role-based authorization.
+- [x] B03 — Implement secure authentication and server-side role-based authorization.
   - Route: delegated; multiple modules and tests.
   - Acceptance: credentials are hashed; protected endpoints reject unauthenticated or unauthorized requests.
   - Checks: focused auth and authorization tests.
-- [ ] B04 — Implement owners, pets, appointments, and appointment requests API verticals.
+- [x] B04 — Implement owners, pets, appointments, and appointment requests API verticals.
   - Route: delegated; multiple modules and API tests.
   - Acceptance: validated CRUD and scheduling conflict protection are available through the API.
   - Checks: focused e2e/integration tests.
+  - Delivery strategy: ask-on-risk. Estimated scope exceeds one review slice; each work unit will be independently committed and assessed.
+  - [x] B04.1 — Add appointment and appointment-request persistence with transactional scheduling constraints.
+    - Route: delegated; schema, migration, and integration verification require coupled database work.
+    - Acceptance: non-cancelled veterinarian slots are unique at the PostgreSQL layer and request resolution can link an appointment.
+    - Checks: Prisma validation, migration deployment, relational/conflict integration verification.
+  - [x] B04.2 — Add authenticated staff CRUD endpoints for owners and pets.
+    - Route: delegated; two API verticals with DTOs, services, controllers, authorization, and tests.
+    - Acceptance: normalized inputs, ownership integrity, uniqueness conflicts, and restrictive deletion behavior are exposed safely.
+    - Checks: focused Jest e2e tests, lint, build.
+  - [x] B04.3 — Add authenticated staff appointment lifecycle endpoints.
+    - Route: delegated; authorization, assigned-veterinarian validation, status transitions, and database conflict mapping are coupled.
+    - Acceptance: staff can manage appointments without double-booking active slots.
+    - Checks: focused Jest e2e tests and PostgreSQL conflict verification.
+  - [x] B04.4 — Add owner-scoped appointment requests and staff resolution lifecycle.
+    - Route: delegated; owner authorization, request-to-appointment transaction, and resolution rules span multiple modules.
+    - Acceptance: owners can request appointments only for their pets; staff can accept or reject them atomically.
+    - Checks: focused Jest e2e tests and transactional integration verification.
 - [ ] B05 — Implement clinical care, private attachments, inventory, payments, and reminders in bounded verticals.
   - Route: delegated; multiple non-trivial modules; split into coherent work-unit commits.
   - Acceptance: clinical workflows are transactional and sensitive files are private.
   - Checks: focused integration tests per vertical.
+  - Delivery strategy: ask-on-risk. Each vertical is independently committed and assessed.
+  - [x] B05.1 — Add clinical persistence and staff endpoints for consultations, vaccines, and prescriptions.
+    - Route: delegated; schema, migration, and transactional attention cascade span multiple modules.
+    - Acceptance: staff can register an attention (consultation + applied vaccines + prescription) atomically for a pet.
+    - Checks: focused Jest e2e tests, lint, build, Prisma validation.
+  - [x] B05.2 — Add private clinical attachments linked to consultations.
+    - Route: delegated; private storage, consultation linkage, and authorization span multiple modules.
+    - Acceptance: staff can attach and read files only through authorized consultation access.
+    - Checks: focused Jest e2e tests and privacy verification.
+  - [x] B05.3 — Add inventory endpoints for medications and tariff services.
+    - Route: delegated; stock rules and service catalog span multiple modules.
+    - Acceptance: staff can manage stock and catalog with validated movements.
+    - Checks: focused Jest e2e tests.
+  - [ ] B05.4 — Add payment endpoints for cash-desk charges.
+    - Route: delegated; charge integrity and method validation span multiple modules.
+    - Acceptance: staff can register and read payments with validated methods and amounts.
+    - Checks: focused Jest e2e tests.
+  - [ ] B05.5 — Add reminder computation or persistence for vaccines and appointments.
+    - Route: delegated; derived scheduling rules span existing modules.
+    - Acceptance: due vaccine and appointment reminders are exposed per pet or owner.
+    - Checks: focused Jest e2e tests.
 - [ ] B06 — Migrate the React data provider from localStorage to authenticated API clients incrementally.
   - Route: delegated; frontend and API integration changes.
   - Acceptance: migrated workflows no longer write business data to localStorage.
@@ -81,6 +119,135 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Database relational verification: a transaction-scoped `prisma db execute` check passed and rolled back. It confirmed the unique role key, user email, owner document number, owner email, and owner user-link constraints, plus restrictive foreign keys from users to roles, owners to users, and pets to owners.
 - B02 rollback boundary: remove `backend/prisma.config.ts`, `backend/prisma/`, the Prisma dependency and scripts, the database environment validation/test setup, and this B02 evidence. B01 health behavior remains independently restorable.
 - B02 delivery: one cohesive work-unit commit, including the generated dependency lockfile and task evidence.
+- B03 bootstrap decision: create the first administrator through an explicit local environment-driven command, not on every application startup and not through manual SQL.
+- B03 migration `20261005150000_add_user_password_hash` adds `users.password_hash` as nullable, backfills existing rows with an Argon2id hash of a discarded cryptographically random secret, and then makes the column non-null. Existing users cannot authenticate until their password is explicitly reset.
+- B03 authentication uses Argon2id password hashes and 15-minute JWT access tokens. `JWT_SECRET` is required and must have at least 32 characters; no refresh-token flow was added.
+- B03 authorization demonstration: `POST /auth/login` issues an access token for valid active credentials; `GET /auth/admin` requires a valid administrator token. Missing and veterinarian credentials are rejected with `401` and `403`, respectively.
+- B03 administrator bootstrap is opt-in only: `npm run seed:admin` reads `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` from the local environment, creates an administrator only when none exists, and is not run by application startup.
+- TDD evidence for B03:
+  - RED: `npm test -- --runInBand test/auth.e2e-spec.ts` failed before the authentication implementation (1 suite failed; 0 tests executed) because `argon2` and `PrismaService` did not yet exist.
+  - GREEN: `npm run test:auth` passed after implementation (1 suite passed; 2 tests passed), covering valid credentials and `401`/`403` protected-endpoint enforcement.
+  - REFACTOR: corrected the build configuration so generated Prisma code stays within `src` and `nest build` refreshes the executable output; no behavior refactor was warranted.
+- Observed B03 checks:
+  - Focused authentication tests: `npm run test:auth` — passed (1 suite, 2 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (3 suites, 4 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed.
+  - Migration deployment and status: `npm run prisma:migrate:deploy` found no pending migrations; `npx prisma migrate status` reported that the database schema is up to date.
+  - Safe runtime scenario: with local environment credentials, `POST /auth/login` returned `201` and a token that received `200` from `GET /auth/admin`; no secrets or tokens were printed.
+- B03 rollback boundary: remove `backend/src/auth/`, `backend/src/prisma/`, migration `20261005150000_add_user_password_hash`, generated-client configuration and authentication dependencies, then revert the B03 environment, build, test, and task evidence changes. B01 health and the B02 relational schema remain independently restorable after restoring the `users` table definition.
+- B03 delivery: one cohesive work-unit commit including the migration, authentication/RBAC behavior, focused tests, dependency lockfile, and this task evidence. The final commit ID is reported in the delivery record.
+- B03 migration correction: the backward-compatible path is validated with a legacy user present before the password-hash migration. It preserves the non-null Prisma model while preventing any default usable credential for migrated users.
+  - Focused auth test: `npm run test:auth` — passed (1 suite, 2 tests), including rejection of the migration backfill hash with an arbitrary password.
+  - Prisma validation: `npm run prisma:validate` — passed.
+  - Local PostgreSQL deployment: `npm run prisma:migrate:deploy` and `npx prisma migrate status` — passed; no migrations were pending and the schema was up to date.
+  - Local PostgreSQL migration path: a rollback-scoped transaction removed the existing column, inserted a legacy user, applied the nullable-add/backfill/non-null sequence, confirmed the backfill and non-null constraint, then rolled back — passed.
+- B04.1 adds `Appointment` and `AppointmentRequest` persistence. Both models retain restrictive foreign keys; appointment requests have an explicit resolution state and an optional one-to-one resolved appointment link.
+- B04.1 migration `20261005160000_add_appointments_and_requests` is forward-only. Its partial unique PostgreSQL index permits a veterinarian to have at most one non-cancelled appointment at a scheduled timestamp while allowing a cancelled appointment at that slot.
+- TDD evidence for B04.1:
+  - RED: `npm test -- --runInBand test/appointment-persistence.e2e-spec.ts` failed before implementation (1 suite failed; 1 test failed) because the schema did not declare `model Appointment`.
+  - GREEN: after the Prisma models and migration were added, the same command passed (1 suite passed; 1 test passed).
+  - REFACTOR: no behavior refactor was warranted; Prisma formatting was evaluated, and the final schema retains the repository's existing field-alignment convention. The focused test passed again against the final schema.
+- Observed B04.1 checks:
+  - Focused persistence Jest test: `npm test -- --runInBand test/appointment-persistence.e2e-spec.ts` — passed (1 suite, 1 test).
+  - PostgreSQL integration test: `npm run test:appointment-persistence` — passed and rolled back. It confirmed duplicate active veterinarian slots raise a unique violation, a cancelled slot may coexist, and an accepted request can link its resolved appointment.
+  - Prisma validation: `npm run prisma:validate` — passed.
+  - Migration deployment: `npm run prisma:migrate:deploy` — passed; no migrations were pending after applying B04.1.
+  - Migration status: `npx prisma migrate status` — passed; database schema is up to date.
+  - All backend tests: `npm test -- --runInBand` — passed (4 suites, 5 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+- B04.1 rollback boundary: revert migration `20261005160000_add_appointments_and_requests` only in a fresh database or through a compensating migration in an already deployed database; remove the appointment schema relations, focused test, and this B04.1 evidence. No API endpoint behavior was introduced.
+- B04.2 adds JWT- and role-protected staff CRUD endpoints at `/owners` and `/pets`. The four staff roles may access them; owner-role tokens and unauthenticated requests are rejected. Owner emails are trimmed and lowercased, and the services map Prisma uniqueness, restrictive foreign-key, and record-not-found errors to HTTP `409` and `404` responses.
+- Pet creation and owner reassignment require an existing owner before persistence. Owner and pet deletes retain the PostgreSQL restrictive foreign-key behavior and return `409` when dependent records prevent deletion.
+- TDD evidence for B04.2:
+  - RED: `npm test -- --runInBand test/owners-pets.e2e-spec.ts` failed before the verticals existed (1 suite failed; 5 tests failed), returning `404` instead of the expected protected CRUD statuses.
+  - GREEN: after implementing the modules, DTOs, controllers, services, and exported guards, the focused command passed (1 suite, 5 tests), covering authorization, validation, CRUD, email normalization, uniqueness, owner existence, ownership reassignment protection, and restrictive deletes.
+  - REFACTOR: centralized the allowed staff roles in `auth/staff-roles.ts`; the focused suite passed again (1 suite, 5 tests).
+- Observed B04.2 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/owners-pets.e2e-spec.ts` — passed (1 suite, 5 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (5 suites, 10 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+- B04.2 rollback boundary: remove `backend/src/owners/`, `backend/src/pets/`, `backend/src/auth/staff-roles.ts`, the guard exports from `backend/src/auth/auth.module.ts`, their imports from `backend/src/app.module.ts`, the focused e2e test, and this B04.2 evidence. B01–B04.1 persistence and authentication behavior remain independent.
+- B04.3 adds JWT- and role-protected staff appointment endpoints at `/appointments` for creation, reads, updates, explicit status changes, and cancellation. Assigned users must be active veterinarians, and Prisma scheduling conflicts return HTTP `409`.
+- Appointment lifecycle transitions are `PENDING → CONFIRMED → IN_ROOM → ATTENDED`, with cancellation allowed from each non-terminal state. Attended and cancelled appointments are terminal.
+- TDD evidence for B04.3:
+  - RED: `npm test -- --runInBand test/appointments.e2e-spec.ts` failed before the endpoint implementation (1 suite failed; 4 tests failed) because `/appointments` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the appointment module, DTOs, controller, and service, the focused command passed (1 suite, 4 tests), covering authorization, inactive/non-veterinarian assignment, lifecycle updates, cancellation, cancelled-slot reuse, and active-slot conflicts.
+  - REFACTOR: centralized status-transition validation in `requireStatusTransition`; the focused suite passed again (1 suite, 4 tests).
+- Observed B04.3 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/appointments.e2e-spec.ts` — passed (1 suite, 4 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (6 suites, 14 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - PostgreSQL conflict verification: `npm run test:appointment-persistence` — passed. The transactional script verified duplicate active veterinarian slots are rejected and a cancelled appointment may share the same slot.
+- B04.3 rollback boundary: remove `backend/src/appointments/`, its import from `backend/src/app.module.ts`, `backend/test/appointments.e2e-spec.ts`, and this B04.3 evidence. B01–B04.2 behavior and B04.1 persistence remain independent.
+
+- B04.4 adds owner-scoped appointment requests at `/appointment-requests` and staff resolution at `/appointment-requests/staff`, `/appointment-requests/:id/accept`, and `/appointment-requests/:id/reject`. Owners resolve through their linked owner record and can only use their own pets; staff acceptance creates the appointment inside the same transaction and conditional `updateMany` claims only `PENDING` requests.
+- TDD evidence for B04.4:
+  - RED: `npm test -- --runInBand test/appointment-requests.e2e-spec.ts` failed before implementation (1 suite failed; 4 tests failed) because `/appointment-requests` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the appointment-requests module, DTOs, controller, and transactional service, the focused command passed (1 suite, 4 tests), covering authentication/role boundaries, owner-only creation and reads, atomic acceptance with scheduling-conflict mapping, and validated rejection with double-resolution protection.
+  - REFACTOR: removed explicit `any` transaction typing in favor of inferred Prisma transaction types and corrected a supertest asymmetric-matcher assertion in the focused test; the focused suite passed again (1 suite, 4 tests).
+- Observed B04.4 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/appointment-requests.e2e-spec.ts` — passed (1 suite, 4 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (7 suites, 18 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - PostgreSQL integration: `npm run test:appointment-persistence` — passed; script executed successfully.
+- B04.4 rollback boundary: remove `backend/src/appointment-requests/`, its import from `backend/src/app.module.ts`, `backend/test/appointment-requests.e2e-spec.ts`, and this B04.4 evidence. B01–B04.3 behavior and persistence remain independent.
+
+- B05.1 adds clinical persistence (`Consultation`, `Vaccine`, `Prescription`, `PrescriptionItem`) with restrictive foreign keys, plus staff-only endpoints: `POST /clinical/attentions` registers consultation, vaccines, and prescription atomically in one transaction; `GET /consultations`, `GET /vaccines`, and `GET /prescriptions` support optional `petId` filtering; standalone `POST /vaccines` and `POST /prescriptions` validate pet, veterinarian, and consultation references.
+- B05.1 migration `20261006000000_add_clinical_care` is forward-only and was deployed to local PostgreSQL; attachments, stock movements, payments, and reminders stay out of scope for B05.2–B05.5.
+- TDD evidence for B05.1:
+  - RED: `npm test -- --runInBand test/clinical.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/clinical/attentions` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the clinical module, DTOs, controllers, and transactional service, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, atomic attention registration with nested reads, and pet/veterinarian validation.
+  - REFACTOR: replaced `any` mocks with `MockRecord` types, removed an unused validator import, and simplified the optional query pipe; lint passed and the focused suite passed again (1 suite, 3 tests).
+- Observed B05.1 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/clinical.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (8 suites, 21 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration deployment and status: `npm run prisma:migrate:deploy` — no pending migrations; `npx prisma migrate status` — database schema is up to date (4 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/clinical-persistence.integration.sql` — passed and rolled back; confirmed the 4 clinical tables, 9 RESTRICT foreign keys, and attention-type enum labels.
+- B05.1 rollback boundary: revert migration `20261006000000_add_clinical_care` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/clinical/`, its import from `backend/src/app.module.ts`, `backend/test/clinical.e2e-spec.ts`, `backend/test/clinical-persistence.integration.sql`, and this B05.1 evidence. B01–B04 behavior remains independent.
+
+- B05.2 adds the `ClinicalAttachment` model with restrictive foreign keys to consultations and uploading users, plus staff-only endpoints: `POST /consultations/:id/attachments` validates file name, MIME type, and `data:` URL payloads; `GET /consultations/:id/attachments` lists metadata without payloads; `GET /attachments/:id` reads the private payload; `DELETE /attachments/:id` removes it. Every route requires an existing consultation, so files are never reachable outside their owning record.
+- B05.2 migration `20261006010000_add_clinical_attachments` is forward-only and was deployed to local PostgreSQL.
+- TDD evidence for B05.2:
+  - RED: `npm test -- --runInBand test/clinical-attachments.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/consultations/1/attachments` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the attachments service and controllers, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, upload/list/read/delete through the owning consultation, and unknown-consultation plus invalid-payload rejection.
+  - REFACTOR: no behavior refactor was warranted; the focused suite, lint, and build passed on the final code.
+- Observed B05.2 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/clinical-attachments.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (9 suites, 24 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration status: `npx prisma migrate status` — database schema is up to date (5 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/clinical-attachments-persistence.integration.sql` — passed and rolled back; confirmed the attachments table and both RESTRICT foreign keys.
+- B05.2 rollback boundary: revert migration `20261006010000_add_clinical_attachments` only in a fresh database or through a compensating migration in an already deployed database; remove the attachments service, controllers, DTO, their wiring in `backend/src/clinical/clinical.module.ts`, the `ClinicalAttachment` schema relations, `backend/test/clinical-attachments.e2e-spec.ts`, `backend/test/clinical-attachments-persistence.integration.sql`, and this B05.2 evidence. B01–B05.1 behavior remains independent.
+
+- B05.3 adds the `Medication` and `Service` models plus staff-only endpoints: `/medications` with full CRUD, atomic `POST /medications/:id/restock` stock increments, and conditional `POST /medications/:id/dispense` decrements that return `409` on insufficient stock and `404` on unknown records; `/services` with full CRUD where creation defaults to active, mirroring the frontend tarifario behavior.
+- B05.3 migration `20261006020000_add_inventory` is forward-only and was deployed to local PostgreSQL.
+- TDD evidence for B05.3:
+  - RED: `npm test -- --runInBand test/inventory.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/medications` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the medications and services modules, DTOs, controllers, and services, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, validated catalog management with atomic restock and guarded dispense, and tariff defaults with updates and deletes.
+  - REFACTOR: corrected the service-create mock so explicit `undefined` keeps the Prisma database default instead of shadowing it; the focused suite passed again (1 suite, 3 tests).
+- Observed B05.3 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/inventory.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (10 suites, 27 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration status: `npx prisma migrate status` — database schema is up to date (6 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/inventory-persistence.integration.sql` — passed and rolled back; confirmed the medications and services tables plus medication-category enum labels.
+- B05.3 rollback boundary: revert migration `20261006020000_add_inventory` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/medications/`, `backend/src/services/`, their imports from `backend/src/app.module.ts`, the `Medication` and `Service` schema models, `backend/test/inventory.e2e-spec.ts`, `backend/test/inventory-persistence.integration.sql`, and this B05.3 evidence. B01–B05.2 behavior remains independent.
 
 ## Next step
-Implement B03: secure authentication and server-side role-based authorization.
+Continue with B05.4.

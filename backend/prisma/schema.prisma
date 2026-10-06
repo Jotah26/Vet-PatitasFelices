@@ -1,3 +1,8 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
 datasource db {
   provider = "postgresql"
 }
@@ -29,6 +34,48 @@ enum PetSex {
   FEMALE @map("Hembra")
 }
 
+enum AppointmentStatus {
+  PENDING   @map("Pendiente")
+  CONFIRMED @map("Confirmada")
+  IN_ROOM   @map("En sala")
+  ATTENDED  @map("Atendida")
+  CANCELLED @map("Cancelada")
+}
+
+enum AppointmentRequestResolution {
+  PENDING  @map("Pendiente")
+  ACCEPTED @map("Aceptada")
+  REJECTED @map("Rechazada")
+}
+
+enum ClinicalAttentionType {
+  GENERAL_CONSULTATION @map("Consulta general")
+  VACCINATION          @map("Vacunación")
+  FOLLOW_UP            @map("Control / seguimiento")
+  SURGERY              @map("Cirugía")
+  EMERGENCY            @map("Urgencia")
+  DEWORMING            @map("Desparasitación")
+}
+
+enum ConsultationStatus {
+  COMPLETED   @map("Completada")
+  IN_FOLLOWUP @map("En seguimiento")
+}
+
+enum PrescriptionStatus {
+  ISSUED    @map("Emitida")
+  DISPENSED @map("Dispensada")
+}
+
+enum MedicationCategory {
+  ANTIALLERGIC @map("Antialérgico")
+  ANTIBIOTIC   @map("Antibiótico")
+  ANTIPARASITIC @map("Antiparasitario")
+  FLEA         @map("Antipulgas")
+  SUPPLY       @map("Insumo")
+  VACCINE      @map("Vacuna")
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   key       RoleKey  @unique
@@ -43,12 +90,18 @@ model User {
   id        Int        @id @default(autoincrement())
   name      String
   email     String     @unique
+  passwordHash String  @map("password_hash")
   status    UserStatus @default(ACTIVE)
   roleId    Int        @map("role_id")
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
   owner     Owner?
   role      Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointmentsAsVeterinarian   Appointment[]  @relation("AppointmentVeterinarian")
+  consultationsAsVeterinarian  Consultation[] @relation("ConsultationVeterinarian")
+  vaccinesAdministered         Vaccine[]      @relation("VaccineAdministrator")
+  prescriptionsAsVeterinarian  Prescription[] @relation("PrescriptionVeterinarian")
+  attachmentsUploaded          ClinicalAttachment[] @relation("AttachmentUploader")
 
   @@index([roleId])
   @@map("users")
@@ -66,6 +119,7 @@ model Owner {
   updatedAt      DateTime @updatedAt @map("updated_at")
   pets           Pet[]
   user           User?    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointmentRequests AppointmentRequest[]
 
   @@map("owners")
 }
@@ -86,7 +140,175 @@ model Pet {
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
   owner              Owner      @relation(fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  appointments        Appointment[]
+  appointmentRequests AppointmentRequest[]
+  consultations       Consultation[]
+  vaccines            Vaccine[]
+  prescriptions       Prescription[]
 
   @@index([ownerId])
   @@map("pets")
+}
+
+model Appointment {
+  id              Int                 @id @default(autoincrement())
+  scheduledAt     DateTime            @map("scheduled_at")
+  petId           Int                 @map("pet_id")
+  veterinarianId  Int                 @map("veterinarian_id")
+  reason          String
+  status          AppointmentStatus   @default(PENDING)
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  pet             Pet                 @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian    User                @relation("AppointmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resolvedRequest AppointmentRequest?
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@map("appointments")
+}
+
+model Consultation {
+  id               Int                   @id @default(autoincrement())
+  petId            Int                   @map("pet_id")
+  veterinarianId   Int                   @map("veterinarian_id")
+  occurredAt       DateTime              @default(now()) @map("occurred_at")
+  type             ClinicalAttentionType
+  diagnosis        String
+  treatment        String
+  recommendations  String
+  status           ConsultationStatus    @default(COMPLETED)
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  pet              Pet                   @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian     User                  @relation("ConsultationVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vaccines         Vaccine[]
+  prescriptions    Prescription[]
+  attachments      ClinicalAttachment[]
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@map("consultations")
+}
+
+model Vaccine {
+  id               Int          @id @default(autoincrement())
+  petId            Int          @map("pet_id")
+  consultationId   Int?         @map("consultation_id")
+  name             String
+  administeredAt   DateTime     @default(now()) @map("administered_at")
+  nextDueAt        DateTime?    @map("next_due_at")
+  administeredById Int?         @map("administered_by_id")
+  batch            String?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  pet              Pet          @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  consultation     Consultation? @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  administeredBy   User?        @relation("VaccineAdministrator", fields: [administeredById], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([petId])
+  @@index([consultationId])
+  @@map("vaccines")
+}
+
+model Prescription {
+  id              Int                @id @default(autoincrement())
+  petId           Int                @map("pet_id")
+  veterinarianId  Int                @map("veterinarian_id")
+  consultationId  Int?               @map("consultation_id")
+  issuedAt        DateTime           @default(now()) @map("issued_at")
+  instructions    String?
+  status          PrescriptionStatus @default(ISSUED)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  pet              Pet                @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  veterinarian     User               @relation("PrescriptionVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  consultation    Consultation?      @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  items           PrescriptionItem[]
+
+  @@index([petId])
+  @@index([veterinarianId])
+  @@index([consultationId])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             Int          @id @default(autoincrement())
+  prescriptionId Int          @map("prescription_id")
+  medication     String
+  dose           String
+  days           Int
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+model ClinicalAttachment {
+  id             Int          @id @default(autoincrement())
+  consultationId Int          @map("consultation_id")
+  fileName       String       @map("file_name")
+  mimeType       String       @map("mime_type")
+  dataUrl        String       @map("data_url")
+  uploadedById   Int?         @map("uploaded_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  uploadedBy     User?        @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([consultationId])
+  @@map("clinical_attachments")
+}
+
+model Medication {
+  id              Int                @id @default(autoincrement())
+  name            String
+  category        MedicationCategory
+  presentation    String
+  stock           Int                @default(0)
+  minStock        Int                @default(0) @map("min_stock")
+  price           Float
+  activeIngredient String?           @map("active_ingredient")
+  batch           String?
+  expiresAt       DateTime?          @map("expires_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@map("medications")
+}
+
+model Service {
+  id              Int      @id @default(autoincrement())
+  concept         String
+  description     String
+  price           Float
+  durationMinutes Int      @map("duration_minutes")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("services")
+}
+
+model AppointmentRequest {
+  id                    Int                          @id @default(autoincrement())
+  ownerId               Int                          @map("owner_id")
+  petId                 Int                          @map("pet_id")
+  scheduledAt           DateTime                     @map("scheduled_at")
+  reason                String
+  resolutionState       AppointmentRequestResolution @default(PENDING) @map("resolution_state")
+  rejectionReason       String?                      @map("rejection_reason")
+  resolvedAppointmentId Int?                         @unique @map("resolved_appointment_id")
+  resolvedAt            DateTime?                    @map("resolved_at")
+  createdAt             DateTime                     @default(now()) @map("created_at")
+  updatedAt             DateTime                     @updatedAt @map("updated_at")
+  owner                 Owner                        @relation(fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pet                   Pet                          @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resolvedAppointment   Appointment?                 @relation(fields: [resolvedAppointmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([ownerId])
+  @@index([petId])
+  @@map("appointment_requests")
 }
