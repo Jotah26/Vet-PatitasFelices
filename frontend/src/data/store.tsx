@@ -17,6 +17,7 @@ import type {
   PayloadAtencion,
   Receta,
   Recordatorio,
+  SeguimientoAtencion,
   Solicitud,
   Servicio,
   Vacuna,
@@ -187,6 +188,16 @@ const mapAppointment = (appointment: BackendAppointment): Cita => {
     estado: estado[appointment.status],
   }
 }
+
+const appointmentServiceId = (appointment: BackendAppointment) => appointment.serviceId ?? appointment.service?.id ?? 0
+const appointmentVeterinarianId = (appointment: BackendAppointment) => appointment.veterinarianId ?? appointment.veterinarian?.id ?? 0
+
+const appointmentMatches = (appointment: BackendAppointment, payload: SeguimientoAtencion, scheduledAt: string) =>
+  appointment.scheduledAt === scheduledAt &&
+  appointment.petId === payload.mascotaId &&
+  appointmentVeterinarianId(appointment) === payload.vetId &&
+  appointmentServiceId(appointment) === payload.servicioId &&
+  appointment.reason === payload.motivo
 
 const ownerRequest = (owner: Partial<Propietario>) => ({
   ...(owner.nombre !== undefined ? { name: owner.nombre } : {}),
@@ -697,6 +708,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const propietario = (id: number | null | undefined) => estado.propietarios.find((p) => p.id === id)
     const servicio = (id: number | null | undefined) => estado.tarifario.find((s) => s.id === id)
     const duenioDe = (mascotaId: number | null | undefined) => propietario(mascota(mascotaId)?.propietarioId)
+    const crearSeguimiento = async (payload: SeguimientoAtencion): Promise<Cita> => {
+      const scheduledAt = new Date(`${payload.fecha}T${payload.hora}:00`).toISOString()
+      try {
+        const appointments = await apiRequest<BackendAppointment[]>('/appointments', {}, accessToken())
+        const existente = appointments.find((appointment) => appointmentMatches(appointment, payload, scheduledAt))
+        if (existente) {
+          dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
+          return mapAppointment(existente)
+        }
+      } catch {
+        // The POST remains the authoritative operation if the duplicate check cannot be read.
+      }
+      const appointment = await apiRequest<BackendAppointment>('/appointments', {
+        method: 'POST',
+        body: JSON.stringify({
+          scheduledAt,
+          petId: payload.mascotaId,
+          veterinarianId: payload.vetId,
+          serviceId: payload.servicioId,
+          reason: payload.motivo,
+        }),
+      }, accessToken())
+      const mapped = mapAppointment(appointment)
+      dispatch({ tipo: 'API_CITAS', datos: [...estado.citas.filter((cita) => cita.id !== mapped.id), mapped] })
+      return mapped
+    }
 
     return {
       ...estado,
@@ -786,6 +823,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined,
           }),
         }, accessToken())
+        const seguimiento = payload.proximaControl
+          ? {
+              mascotaId: payload.mascotaId,
+              vetId: payload.vetId,
+              servicioId: servicioControl(estado.tarifario),
+              fecha: payload.proximaControl,
+              hora: '09:00',
+              motivo: 'Control de seguimiento',
+            }
+          : undefined
+        let seguimientoPendiente: SeguimientoAtencion | undefined
+        if (seguimiento) {
+          try {
+            await crearSeguimiento(seguimiento)
+          } catch {
+            seguimientoPendiente = seguimiento
+          }
+        }
         const adjuntosPendientes = await uploadAttachments(consultation.id, payload.archivos ?? [])
         const [consultations, vaccines, prescriptions] = await Promise.all([
           apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
@@ -798,7 +853,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map((item, index) => mapConsultation(item, attachmentLists[index])) })
         dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
         dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
-        return { consultaId: consultation.id, adjuntosPendientes }
+        return { consultaId: consultation.id, adjuntosPendientes, ...(seguimientoPendiente ? { seguimientoPendiente } : {}) }
       },
       reintentarAdjuntos: async (consultaId, adjuntos) => {
         const pendientes = await uploadAttachments(consultaId, adjuntos)
@@ -811,6 +866,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         return pendientes
       },
+
+      reintentarSeguimiento: (payload) => crearSeguimiento(payload),
 
       crearCita: async (payload) => {
         const appointment = await apiRequest<BackendAppointment>('/appointments', {

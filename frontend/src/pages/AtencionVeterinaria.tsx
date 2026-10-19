@@ -23,7 +23,7 @@ import { CheckIcon, DownloadIcon, PlusIcon, StethoscopeIcon, SyringeIcon, TrashI
 import { EditorReceta } from '../components/EditorReceta'
 import { ModalConsulta } from '../components/ModalConsulta'
 import type { ErroresFormulario } from '../hooks'
-import type { Adjunto, Consulta, PayloadAtencion, RecetaEmitida, TipoAtencion, VacunaAplicada } from '../data/types'
+import type { Adjunto, Consulta, PayloadAtencion, RecetaEmitida, SeguimientoAtencion, TipoAtencion, VacunaAplicada } from '../data/types'
 
 export default function AtencionVeterinaria() {
   const datos = useDatos()
@@ -52,6 +52,8 @@ export default function AtencionVeterinaria() {
   const [guardado, setGuardado] = useState(false)
   const [consultaPendiente, setConsultaPendiente] = useState<{ id: number; adjuntos: Adjunto[] } | null>(null)
   const [reintentandoAdjuntos, setReintentandoAdjuntos] = useState(false)
+  const [seguimientoPendiente, setSeguimientoPendiente] = useState<SeguimientoAtencion | null>(null)
+  const [reintentandoSeguimiento, setReintentandoSeguimiento] = useState(false)
 
   const [pacientePrevio, setPacientePrevio] = useState(mascotaId)
   if (pacientePrevio !== mascotaId) {
@@ -104,12 +106,15 @@ export default function AtencionVeterinaria() {
       const resultado = await datos.registrarAtencion(payload)
       setGuardado(true)
       setConsultaPendiente(resultado.adjuntosPendientes.length ? { id: resultado.consultaId, adjuntos: resultado.adjuntosPendientes } : null)
+      setSeguimientoPendiente(resultado.seguimientoPendiente ?? null)
       toast({
-        titulo: resultado.adjuntosPendientes.length ? 'Atención registrada con adjuntos pendientes' : 'Atención registrada',
-        detalle: resultado.adjuntosPendientes.length
-          ? 'La consulta, vacunas y receta se guardaron, pero algunos archivos aún no se pudieron subir.'
-          : 'Se actualizó el historial y las vacunas desde el backend.',
-        tipo: resultado.adjuntosPendientes.length ? 'aviso' : 'exito',
+        titulo: resultado.seguimientoPendiente || resultado.adjuntosPendientes.length ? 'Atención registrada parcialmente' : 'Atención registrada',
+        detalle: resultado.seguimientoPendiente
+          ? 'La atención clínica se guardó, pero la cita de control no pudo registrarse. Puede reintentarlo.'
+          : resultado.adjuntosPendientes.length
+            ? 'La consulta, vacunas y receta se guardaron, pero algunos archivos aún no se pudieron subir.'
+            : 'Se actualizó el historial y las vacunas desde el backend.',
+        tipo: resultado.seguimientoPendiente || resultado.adjuntosPendientes.length ? 'aviso' : 'exito',
       })
 
       if (resultado.adjuntosPendientes.length === 0) {
@@ -142,6 +147,7 @@ export default function AtencionVeterinaria() {
     setArchivos([])
     setErrores({})
     setConsultaPendiente(null)
+    setSeguimientoPendiente(null)
   }
 
   async function reintentarAdjuntos() {
@@ -159,6 +165,20 @@ export default function AtencionVeterinaria() {
       }
     } finally {
       setReintentandoAdjuntos(false)
+    }
+  }
+
+  async function reintentarSeguimiento() {
+    if (!seguimientoPendiente) return
+    setReintentandoSeguimiento(true)
+    try {
+      await datos.reintentarSeguimiento(seguimientoPendiente)
+      setSeguimientoPendiente(null)
+      toast({ tipo: 'exito', titulo: 'Cita de control guardada', detalle: 'La cita de seguimiento quedó registrada.' })
+    } catch (error) {
+      toast({ tipo: 'error', titulo: 'No se pudo guardar la cita de control', detalle: error instanceof Error ? error.message : 'Reintente nuevamente.' })
+    } finally {
+      setReintentandoSeguimiento(false)
     }
   }
 
@@ -182,13 +202,27 @@ export default function AtencionVeterinaria() {
             <CheckIcon className="h-7 w-7" />
           </span>
           <h2 className="mt-4 text-lg font-bold text-slate-900">
-            {consultaPendiente ? 'Atención registrada con adjuntos pendientes' : 'Atención registrada correctamente'}
+            {seguimientoPendiente || consultaPendiente ? 'Atención registrada parcialmente' : 'Atención registrada correctamente'}
           </h2>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-600">
-            {consultaPendiente
-              ? <>La consulta de <span className="font-semibold">{paciente?.nombre}</span>, sus vacunas y receta se guardaron. Faltan {consultaPendiente.adjuntos.length} archivo(s); la atención no está completamente persistida.</>
-              : <>Se guardó la consulta de <span className="font-semibold">{paciente?.nombre}</span>, se actualizó su historial, las vacunas aplicadas y el portal del propietario ya muestra la información.</>}
+            {seguimientoPendiente
+              ? <>La consulta de <span className="font-semibold">{paciente?.nombre}</span> se guardó, pero falta registrar la cita de control. La atención no está completamente persistida.</>
+              : consultaPendiente
+                ? <>La consulta de <span className="font-semibold">{paciente?.nombre}</span>, sus vacunas y receta se guardaron. Faltan {consultaPendiente.adjuntos.length} archivo(s); la atención no está completamente persistida.</>
+                : <>Se guardó la consulta de <span className="font-semibold">{paciente?.nombre}</span>, se actualizó su historial, las vacunas aplicadas y el portal del propietario ya muestra la información.</>}
           </p>
+          {seguimientoPendiente && (
+             <div className="mx-auto mt-4 max-w-md text-left">
+               <Aviso tono="aviso" titulo="Cita de control pendiente">
+                 <div className="flex flex-wrap items-center justify-between gap-2">
+                   <span>La atención clínica ya está guardada; reintente la cita sin volver a registrar la consulta.</span>
+                   <Button size="sm" variant="secondary" onClick={() => void reintentarSeguimiento()} disabled={reintentandoSeguimiento}>
+                     {reintentandoSeguimiento ? 'Reintentando…' : 'Reintentar cita'}
+                   </Button>
+                 </div>
+               </Aviso>
+             </div>
+          )}
           {consultaPendiente && (
             <div className="mx-auto mt-4 max-w-md text-left">
               <Aviso tono="aviso" titulo="Archivos pendientes">

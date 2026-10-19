@@ -145,6 +145,16 @@ export interface Consulta {
 export interface ResultadoAtencion {
   consultaId: number
   adjuntosPendientes: Adjunto[]
+  seguimientoPendiente?: SeguimientoAtencion
+}
+
+export interface SeguimientoAtencion {
+  mascotaId: number
+  vetId: number
+  servicioId: number
+  fecha: string
+  hora: string
+  motivo: string
 }
 
 /** `nombre` es texto libre: existen variantes como "Triple felina (1.ª dosis)". */
@@ -412,6 +422,7 @@ export interface DatosApi extends Estado {
   /* Mutaciones. */
   registrarAtencion: (payload: PayloadAtencion) => Promise<ResultadoAtencion>
   reintentarAdjuntos: (consultaId: number, adjuntos: Adjunto[]) => Promise<Adjunto[]>
+  reintentarSeguimiento: (payload: SeguimientoAtencion) => Promise<Cita>
   crearCita: (payload: NuevaCita) => Promise<void>
   actualizarCita: (id: number, cambios: Partial<Cita>) => Promise<void>
   cambiarEstadoCita: (id: number, estado: EstadoCita) => Promise<void>
