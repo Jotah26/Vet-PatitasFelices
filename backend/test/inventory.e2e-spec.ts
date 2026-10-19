@@ -124,7 +124,7 @@ describe('Inventory vertical', () => {
     await asOwner(request(app.getHttpServer()).get('/medications')).expect(403);
     await request(app.getHttpServer()).post('/services').send(service()).expect(401);
     await asOwner(request(app.getHttpServer()).post('/services')).send(service()).expect(403);
-    await asOwner(request(app.getHttpServer()).get('/services')).expect(403);
+    await asOwner(request(app.getHttpServer()).get('/services')).expect(200);
   });
 
   it('manages the medication catalog with validated stock movements', async () => {
