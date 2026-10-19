@@ -77,7 +77,7 @@ export default function Citas() {
       .filter((c) => (vetId ? c.vetId === Number(vetId) : true))
       .filter((c) => (t ? `${c.motivo} ${datos.nombreMascota(c.mascotaId)}`.toLowerCase().includes(t) : true))
       .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
-  }, [datos, rangoFechas, estado, vetId, consulta])
+  }, [datos, rangoFechas, estado, vetId, consulta, user])
 
   const porDia = useMemo(() => {
     const mapa = new Map<string, Cita[]>()

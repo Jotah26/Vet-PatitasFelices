@@ -345,6 +345,10 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Rollback boundary: revert only the B06.15 commit, or remove `SeguimientoAtencion` and the follow-up API/retry/duplicate-check path in `frontend/src/data/types.ts`, `frontend/src/data/store.tsx`, and `frontend/src/pages/AtencionVeterinaria.tsx`, plus this evidence. Preserve the B06.1–B06.14 authentication, appointment, clinical transaction, and attachment behavior.
 
 ## Next step
+- Cleanup — Resolve the two existing React Hook dependency warnings without changing user-visible behavior.
+  - Evidence: `frontend/src/pages/Citas.tsx` now tracks the user object used by its appointment filter, and `frontend/src/pages/Vacunas.tsx` tracks `idsPermitidos` in the vaccine list memo; no warning suppression or Spanish UI changes were added.
+  - Verification and commit identity: recorded in the delivery result after frontend lint/build and the full backend test suite.
+  - Rollback boundary: revert only the two dependency-array changes and this cleanup evidence entry.
 - B05.5 adds derived `GET /reminders` results for due vaccines within 30 days and active appointments within 10 days. Staff can filter by `petId`; owner-role tokens are restricted to their linked owner and owned pets. No reminder table or duplicate persistence was introduced.
 - TDD evidence for B05.5:
   - RED: `npm test -- --runInBand test/reminders.e2e-spec.ts` failed before implementation (1 suite failed; 2 tests failed) because `/reminders` returned `404` rather than the expected authenticated response.

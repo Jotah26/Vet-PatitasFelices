@@ -100,7 +100,7 @@ export default function Vacunas() {
         t ? `${v.nombre} ${datos.nombreMascota(v.mascotaId)} ${v.lote ?? ''}`.toLowerCase().includes(t) : true,
       )
       .sort((a, b) => a.proxima.localeCompare(b.proxima))
-  }, [datos, consulta, filtro])
+  }, [datos, consulta, filtro, idsPermitidos])
 
   const resumen = useMemo(
     () => ({
