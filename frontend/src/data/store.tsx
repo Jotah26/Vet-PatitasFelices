@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
+import { accessToken, apiRequest } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
   Archivo,
@@ -17,6 +19,7 @@ import type {
   Servicio,
   Vacuna,
   EstadoVacuna,
+  Mascota,
 } from '../data/types'
 
 /* Se sube la versión cuando cambia la semilla: al abrir la app se descartan los
@@ -72,6 +75,8 @@ function cargar(): Estado {
 
 function reducer(estado: Estado, accion: Accion): Estado {
   switch (accion.tipo) {
+    case 'API_PROPIETARIOS_MASCOTAS':
+      return { ...estado, propietarios: accion.datos.propietarios, mascotas: accion.datos.mascotas }
     /* ---------- Usuarios ---------- */
     case 'USUARIO_CREAR':
       return {
@@ -406,7 +411,49 @@ function reducerRaiz(estado: Estado, accion: Accion): Estado {
 export function DataProvider({ children }: { children: ReactNode }) {
   const [estado, dispatch] = useReducer(reducerRaiz, undefined, cargar)
   const { toast } = useToast()
+  const { user } = useAuth()
   const primerRender = useRef(true)
+
+  useEffect(() => {
+    if (!user) return
+    let activo = true
+    Promise.all([
+      apiRequest<Array<{ id: number; name: string; documentNumber: string; phone: string; email: string; address: string }>>('/owners', {}, accessToken()),
+      apiRequest<Array<{ id: number; name: string; species: string; breed: string; sex: string; age: string; color: string; weight: string; isNeutered: boolean; ownerId: number; medicalBackground: string; photoDataUrl?: string }>>('/pets', {}, accessToken()),
+    ])
+      .then(([owners, pets]) => {
+        if (!activo) return
+        dispatch({
+          tipo: 'API_PROPIETARIOS_MASCOTAS',
+          datos: {
+            propietarios: owners.map((owner) => ({
+              id: owner.id,
+              nombre: owner.name,
+              dni: owner.documentNumber,
+              telefono: owner.phone,
+              email: owner.email,
+              direccion: owner.address,
+            })),
+            mascotas: pets.map((pet) => ({
+              id: pet.id,
+              nombre: pet.name,
+              especie: pet.species as Mascota['especie'],
+              raza: pet.breed,
+              sexo: pet.sex as Mascota['sexo'],
+              edad: pet.age,
+              color: pet.color,
+              peso: pet.weight,
+              esterilizado: pet.isNeutered,
+              propietarioId: pet.ownerId,
+              antecedentes: pet.medicalBackground,
+              ...(pet.photoDataUrl ? { foto: pet.photoDataUrl } : {}),
+            })),
+          },
+        })
+      })
+      .catch(() => toast({ tipo: 'aviso', titulo: 'Datos no sincronizados', detalle: 'No se pudieron cargar propietarios y mascotas desde el backend.' }))
+    return () => { activo = false }
+  }, [toast, user])
 
   useEffect(() => {
     if (primerRender.current) {
@@ -414,7 +461,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      localStorage.setItem(clave_bd, JSON.stringify(estado))
+      localStorage.setItem(clave_bd, JSON.stringify({ ...estado, propietarios: [], mascotas: [] }))
     } catch {
       toast({
         tipo: 'error',

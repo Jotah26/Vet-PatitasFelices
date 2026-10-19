@@ -350,6 +350,7 @@ export type Accion =
   | { tipo: 'ARCHIVO_ELIMINAR'; datos: { id: number } }
   | { tipo: 'ATENCION_REGISTRAR'; datos: PayloadAtencion }
   | { tipo: 'RESTABLECER' }
+  | { tipo: 'API_PROPIETARIOS_MASCOTAS'; datos: { propietarios: Propietario[]; mascotas: Mascota[] } }
 
 /* ---------- API del store ---------- */
 

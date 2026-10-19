@@ -86,6 +86,11 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; API client, auth state, and route session restoration are coupled.
     - Acceptance: the frontend authenticates through `POST /auth/login`, stores only the access token, restores the session, and logs out locally.
     - Checks: frontend lint/build and backend auth regression tests.
+  - [x] B06.2 — Synchronize owners and pets from the authenticated API (read path).
+    - Route: direct; one provider hydration boundary plus API mapping.
+    - Acceptance: authenticated frontend reads owners and pets from `/owners` and `/pets`; those collections are no longer persisted to localStorage.
+    - Checks: frontend lint/build and backend auth/build.
+    - Follow-up: migrate owner/pet create, update, and delete mutations in the next work unit.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
@@ -291,5 +296,13 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Frontend build: `npm run build` — passed; Vite generated the production bundle.
 - B06.1 rollback boundary: remove `frontend/src/api/client.ts`, restore the demo implementation in `frontend/src/auth/AuthContext.tsx` and `frontend/src/pages/Login.tsx`, remove `GET /auth/me` from the backend auth controller/service, and remove this B06.1 evidence. The unrelated `frontend/package-lock.json` remains outside the work unit.
 
+- B06.2 synchronizes owners and pets after JWT session restoration through `/owners` and `/pets`, maps backend fields to the existing frontend domain, and prevents those two collections from being written into `pf_db_v3`. The provider order now places `AuthProvider` outside `DataProvider` so hydration can react to the authenticated user.
+- B06.2 evidence:
+  - Frontend lint: `npm run lint` — passed with the same 2 pre-existing hook dependency warnings and no errors.
+  - Frontend build: `npm run build` — passed; Vite generated the production bundle.
+  - Backend auth regression: `npm test -- --runInBand test/auth.e2e-spec.ts` — passed (1 suite, 2 tests).
+  - Backend build: `npm run build` — passed.
+- B06.2 rollback boundary: remove API hydration from `frontend/src/data/store.tsx`, restore the original provider order in `frontend/src/main.tsx`, remove `accessToken` export if unused, and remove this B06.2 evidence. Mutation calls remain local until the next work unit.
+
 ## Next step
-Continue B06 with the first authenticated data vertical, starting with owners and pets.
+Migrate owner and pet create/update/delete mutations through the authenticated API.
