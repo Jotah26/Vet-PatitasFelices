@@ -8,16 +8,23 @@ import logo from '../../assets/img/logo.png'
 import foto from '../../assets/img/mas1.webp'
 
 export default function Login() {
-  const { login, user } = useAuth()
+  const { login, register, user } = useAuth()
   const [email, setEmail] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [error, setError] = useState('')
+  const [registro, setRegistro] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const [dni, setDni] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [direccion, setDireccion] = useState('')
 
   if (user) return <Navigate to={rol(user.rol).home} replace />
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const r = await login(email, contrasena)
+    const r = registro
+      ? await register({ name: nombre, email, password: contrasena, documentNumber: dni, phone: telefono, address: direccion })
+      : await login(email, contrasena)
     if (!r.ok) setError(r.error)
   }
 
@@ -89,10 +96,18 @@ export default function Login() {
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-            <h2 className="text-xl font-bold tracking-tight text-slate-900">Iniciar sesión</h2>
-            <p className="mt-1 text-sm text-slate-500">Use su correo institucional para entrar.</p>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">{registro ? 'Crear cuenta de propietario' : 'Iniciar sesión'}</h2>
+            <p className="mt-1 text-sm text-slate-500">{registro ? 'Registrate para acceder al portal de propietarios.' : 'Use su correo institucional para entrar.'}</p>
 
             <form onSubmit={enviar} className="mt-4 space-y-4">
+              {registro && (
+                <>
+                  <Input label="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} requerido />
+                  <Input label="Documento" value={dni} onChange={(e) => setDni(e.target.value)} requerido />
+                  <Input label="Teléfono" value={telefono} onChange={(e) => setTelefono(e.target.value)} requerido />
+                  <Input label="Dirección" value={direccion} onChange={(e) => setDireccion(e.target.value)} requerido />
+                </>
+              )}
               <Input
                 label="Correo electrónico"
                 type="email"
@@ -128,8 +143,15 @@ export default function Login() {
               )}
 
               <Button type="submit" className="w-full">
-                Entrar
+                {registro ? 'Crear cuenta' : 'Entrar'}
               </Button>
+              <button
+                type="button"
+                className="w-full text-sm font-medium text-primary-600 hover:text-primary-700"
+                onClick={() => { setRegistro((value) => !value); setError('') }}
+              >
+                {registro ? 'Ya tengo una cuenta' : 'Crear una cuenta de propietario'}
+              </button>
             </form>
 
           </div>

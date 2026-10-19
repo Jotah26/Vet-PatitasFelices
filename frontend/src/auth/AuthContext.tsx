@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { apiRequest, type BackendUser, type LoginResponse, type SessionResponse } from '../api/client'
+import { apiRequest, type BackendUser, type LoginResponse, type RegisterOwnerRequest, type SessionResponse } from '../api/client'
 import { rol } from '../data/roles'
 import type { AuthApi, ResultadoLogin } from '../data/types'
 
@@ -58,9 +58,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(clave_sesion)
   }, [])
 
+  const register = useCallback(async (data: RegisterOwnerRequest): Promise<ResultadoLogin> => {
+    try {
+      const response = await apiRequest<LoginResponse>('/auth/register-owner', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+      const candidato = mapUser(response.user)
+      localStorage.setItem(clave_sesion, response.accessToken)
+      setUser(candidato)
+      return { ok: true, usuario: candidato }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'No se pudo crear la cuenta.' }
+    }
+  }, [])
+
   const valor = useMemo<AuthApi>(
-    () => ({ user, perfil, login, logout, esPropietario: user?.rol === 'propietario' }),
-    [user, perfil, login, logout],
+    () => ({ user, perfil, login, register, logout, esPropietario: user?.rol === 'propietario' }),
+    [user, perfil, login, register, logout],
   )
 
   if (loading) return null

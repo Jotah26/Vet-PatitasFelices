@@ -91,6 +91,10 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Acceptance: authenticated frontend reads owners and pets from `/owners` and `/pets`; those collections are no longer persisted to localStorage.
     - Checks: frontend lint/build and backend auth/build.
     - Follow-up: migrate owner/pet create, update, and delete mutations in the next work unit.
+  - [x] B06.3 — Add secure owner self-registration.
+    - Route: direct; auth endpoint, owner relation, and login form are coupled.
+    - Acceptance: visitors can create only `OWNER` accounts, receive a JWT, and enter the owner portal; staff roles cannot be self-assigned.
+    - Checks: frontend lint/build and backend auth/build.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
@@ -303,6 +307,14 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Backend auth regression: `npm test -- --runInBand test/auth.e2e-spec.ts` — passed (1 suite, 2 tests).
   - Backend build: `npm run build` — passed.
 - B06.2 rollback boundary: remove API hydration from `frontend/src/data/store.tsx`, restore the original provider order in `frontend/src/main.tsx`, remove `accessToken` export if unused, and remove this B06.2 evidence. Mutation calls remain local until the next work unit.
+
+- B06.3 adds `POST /auth/register-owner`, which hashes the password, creates the linked `User` and `Owner` atomically, assigns only the `OWNER` role, and returns a JWT. The login form now toggles to a proprietor registration form and routes the authenticated account to `/portal`.
+- B06.3 evidence:
+  - Frontend lint: `npm run lint` — passed with the same 2 pre-existing hook dependency warnings and no errors.
+  - Frontend build: `npm run build` — passed; Vite generated the production bundle.
+  - Backend auth regression: `npm test -- --runInBand test/auth.e2e-spec.ts` — passed (1 suite, 2 tests).
+  - Backend lint/build: `npm run lint` and `npm run build` — passed.
+- B06.3 rollback boundary: remove `POST /auth/register-owner`, its DTO/service method, the frontend registration fields and `register` API method, and this B06.3 evidence. Owner self-registration is independent of staff account provisioning.
 
 ## Next step
 Migrate owner and pet create/update/delete mutations through the authenticated API.

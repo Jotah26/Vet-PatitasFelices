@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { RoleKey } from '../generated/prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterOwnerDto } from './dto/register-owner.dto';
 import { AuthenticatedRequest, JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
@@ -13,6 +14,11 @@ export class AuthController {
   @Post('login')
   login(@Body() credentials: LoginDto) {
     return this.auth.login(credentials);
+  }
+
+  @Post('register-owner')
+  registerOwner(@Body() data: RegisterOwnerDto) {
+    return this.auth.registerOwner(data);
   }
 
   @Get('admin')

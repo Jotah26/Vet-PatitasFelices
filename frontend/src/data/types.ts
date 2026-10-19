@@ -437,6 +437,7 @@ export interface AuthApi {
   user: Usuario | null
   perfil: RolMeta | null
   login: (email: string, contrasena: string) => Promise<ResultadoLogin>
+  register: (data: { name: string; email: string; password: string; documentNumber: string; phone: string; address: string }) => Promise<ResultadoLogin>
   logout: () => void
   esPropietario: boolean
 }
