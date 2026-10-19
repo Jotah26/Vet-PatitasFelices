@@ -45,7 +45,7 @@ export function ModalCita({
   alCerrar: () => void
   cita?: Cita | null
   inicial?: InicialCita
-  onGuardar: (cita: NuevaCita) => void
+  onGuardar: (cita: NuevaCita) => Promise<void>
 }) {
   const datos = useDatos()
   const edicion = cita?.id != null
@@ -118,19 +118,23 @@ export function ModalCita({
   if (!v.motivo.trim()) errores.motivo = 'Indique el motivo de la cita.'
   if (choque) errores.hora = 'Ese horario ya está ocupado para este veterinario.'
 
-  function enviar() {
+  async function enviar() {
     setTocado(true)
     if (Object.keys(errores).length) return
-    onGuardar({
-      fecha: v.fecha,
-      hora: v.hora,
-      estado: v.estado as EstadoCita,
-      mascotaId: Number(v.mascotaId),
-      servicioId: Number(v.servicioId),
-      vetId: Number(v.vetId),
-      motivo: v.motivo.trim(),
-    })
-    alCerrar()
+    try {
+      await onGuardar({
+        fecha: v.fecha,
+        hora: v.hora,
+        estado: v.estado as EstadoCita,
+        mascotaId: Number(v.mascotaId),
+        servicioId: Number(v.servicioId),
+        vetId: Number(v.vetId),
+        motivo: v.motivo.trim(),
+      })
+      alCerrar()
+    } catch {
+      // The page reports the API error; keep the form open for correction/retry.
+    }
   }
 
   const veterinarios = datos.usuarios.filter((u) => u.rol === 'vet' && u.estado === 'Activo')
@@ -151,7 +155,7 @@ export function ModalCita({
           <Button variant="secondary" onClick={alCerrar}>
             Cancelar
           </Button>
-          <Button onClick={enviar}>{edicion ? 'Guardar cambios' : 'Agendar cita'}</Button>
+          <Button onClick={() => void enviar()}>{edicion ? 'Guardar cambios' : 'Agendar cita'}</Button>
         </>
       }
     >

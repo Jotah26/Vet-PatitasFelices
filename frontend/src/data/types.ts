@@ -396,10 +396,10 @@ export interface DatosApi extends Estado {
 
   /* Mutaciones. */
   registrarAtencion: (payload: PayloadAtencion) => void
-  crearCita: (payload: NuevaCita) => void
-  actualizarCita: (id: number, cambios: Partial<Cita>) => void
-  cambiarEstadoCita: (id: number, estado: EstadoCita) => void
-  cancelarCita: (id: number) => void
+  crearCita: (payload: NuevaCita) => Promise<void>
+  actualizarCita: (id: number, cambios: Partial<Cita>) => Promise<void>
+  cambiarEstadoCita: (id: number, estado: EstadoCita) => Promise<void>
+  cancelarCita: (id: number) => Promise<void>
   solicitarCita: (payload: NuevaSolicitud) => Promise<void>
   aceptarSolicitud: (id: number, vetId: number) => Promise<void>
   rechazarSolicitud: (id: number, motivo: string) => Promise<void>

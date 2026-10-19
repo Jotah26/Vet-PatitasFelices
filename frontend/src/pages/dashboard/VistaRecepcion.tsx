@@ -64,6 +64,14 @@ export default function VistaRecepcion() {
 
   const agenda = vetId ? citasHoy.filter((c) => c.vetId === Number(vetId)) : citasHoy
 
+  async function confirmarCita(id: number) {
+    try {
+      await datos.cambiarEstadoCita(id, 'Confirmada')
+    } catch (error) {
+      toast({ titulo: 'No se pudo confirmar la cita', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -187,7 +195,7 @@ export default function VistaRecepcion() {
                   datos={datos}
                   accion={
                     c.estado === 'Pendiente' ? (
-                      <Button size="sm" variant="secondary" onClick={() => datos.cambiarEstadoCita(c.id, 'Confirmada')}>
+                      <Button size="sm" variant="secondary" onClick={() => void confirmarCita(c.id)}>
                         Confirmar
                       </Button>
                     ) : (

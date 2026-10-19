@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useDatos } from '../../data/store'
+import { useToast } from '../../components/Toast'
 import { fmtCorto, hoy } from '../../data/fechas'
 import { Button, PageHeader } from '../../components/ui'
 import { PillIcon, PawIcon, StethoscopeIcon, SyringeIcon } from '../../components/icons'
@@ -8,6 +9,15 @@ import { Alertas, Bloque, FilaCita, Metricas } from '../../components/Tablero'
 
 export default function VistaAsistente() {
   const datos = useDatos()
+  const { toast } = useToast()
+
+  async function llamar(id: number) {
+    try {
+      await datos.cambiarEstadoCita(id, 'En sala')
+    } catch (error) {
+      toast({ titulo: 'No se pudo llamar a la cita', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    }
+  }
 
   const { enSala, espera, insumos, recientes } = useMemo(() => {
     const citasHoy = datos.citasDeHoy()
@@ -71,7 +81,7 @@ export default function VistaAsistente() {
                   datos={datos}
                   acento="bg-amber-50"
                   accion={
-                    <Button size="sm" variant="secondary" onClick={() => datos.cambiarEstadoCita(c.id, 'En sala')}>
+                    <Button size="sm" variant="secondary" onClick={() => void llamar(c.id)}>
                       Llamar
                     </Button>
                   }

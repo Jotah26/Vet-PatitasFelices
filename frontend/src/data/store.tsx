@@ -539,15 +539,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let activo = true
     const ownerPortal = user.rol === 'propietario'
     dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
-    if (ownerPortal) {
-      dispatch({ tipo: 'API_CITAS', datos: [] })
-    }
+    dispatch({ tipo: 'API_CITAS', datos: [] })
     const requestsPath = ownerPortal ? '/appointment-requests' : '/appointment-requests/staff'
     Promise.all([
       ownerPortal ? Promise.resolve([] as BackendOwner[]) : apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
       apiRequest<BackendPet[]>(ownerPortal ? '/pets/mine' : '/pets', {}, accessToken()),
       apiRequest<BackendAppointmentRequest[]>(requestsPath, {}, accessToken()),
-      ownerPortal ? apiRequest<BackendAppointment[]>('/appointments/mine', {}, accessToken()) : Promise.resolve(null),
+      apiRequest<BackendAppointment[]>(ownerPortal ? '/appointments/mine' : '/appointments', {}, accessToken()),
     ])
       .then(([owners, pets, requests, appointments]) => {
         if (!activo) return
@@ -559,7 +557,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           },
         })
         dispatch({ tipo: 'API_SOLICITUDES', datos: requests.map(mapAppointmentRequest) })
-        if (appointments) dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
+        dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -662,10 +660,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       registrarAtencion: (payload) => dispatch({ tipo: 'ATENCION_REGISTRAR', datos: payload }),
 
-      crearCita: (payload) => dispatch({ tipo: 'CITA_CREAR', datos: payload }),
-      cambiarEstadoCita: (id, estadoCita) => dispatch({ tipo: 'CITA_ESTADO', datos: { id, estado: estadoCita } }),
-      actualizarCita: (id, cambios) => dispatch({ tipo: 'CITA_ACTUALIZAR', datos: { id, cambios } }),
-      cancelarCita: (id) => dispatch({ tipo: 'CITA_ESTADO', datos: { id, estado: 'Cancelada' } }),
+      crearCita: async (payload) => {
+        const appointment = await apiRequest<BackendAppointment>('/appointments', {
+          method: 'POST',
+          body: JSON.stringify({
+            scheduledAt: new Date(`${payload.fecha}T${payload.hora}:00`).toISOString(),
+            petId: payload.mascotaId,
+            veterinarianId: payload.vetId,
+            reason: payload.motivo,
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'API_CITAS', datos: [...estado.citas, mapAppointment(appointment)] })
+      },
+      cambiarEstadoCita: async (id, estadoCita) => {
+        const appointment = estadoCita === 'Cancelada'
+          ? await apiRequest<BackendAppointment>(`/appointments/${id}/cancel`, { method: 'POST' }, accessToken())
+          : await apiRequest<BackendAppointment>(`/appointments/${id}/status`, {
+              method: 'PATCH',
+              body: JSON.stringify({ status: {
+                Pendiente: 'PENDING', Confirmada: 'CONFIRMED', 'En sala': 'IN_ROOM', Atendida: 'ATTENDED', Cancelada: 'CANCELLED',
+              }[estadoCita] }),
+            }, accessToken())
+        dispatch({ tipo: 'CITA_ACTUALIZAR', datos: { id, cambios: mapAppointment(appointment) } })
+      },
+      actualizarCita: async (id, cambios) => {
+        const appointment = await apiRequest<BackendAppointment>(`/appointments/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            ...(cambios.fecha && cambios.hora ? { scheduledAt: new Date(`${cambios.fecha}T${cambios.hora}:00`).toISOString() } : {}),
+            ...(cambios.mascotaId !== undefined ? { petId: cambios.mascotaId } : {}),
+            ...(cambios.vetId !== undefined ? { veterinarianId: cambios.vetId } : {}),
+            ...(cambios.motivo !== undefined ? { reason: cambios.motivo } : {}),
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'CITA_ACTUALIZAR', datos: { id, cambios: mapAppointment(appointment) } })
+      },
+      cancelarCita: async (id) => {
+        const appointment = await apiRequest<BackendAppointment>(`/appointments/${id}/cancel`, { method: 'POST' }, accessToken())
+        dispatch({ tipo: 'CITA_ACTUALIZAR', datos: { id, cambios: mapAppointment(appointment) } })
+      },
 
       solicitarCita: async (payload) => {
         const request = await apiRequest<BackendAppointmentRequest>('/appointment-requests', {

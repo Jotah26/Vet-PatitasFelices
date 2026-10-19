@@ -114,28 +114,29 @@ export default function Citas() {
     })
   }
 
-  function guardar(v: NuevaCita) {
+  async function guardar(v: NuevaCita) {
     const id = modal?.id
-    if (id == null) {
-      datos.crearCita({ ...v, estado: 'Confirmada' })
-      toast({
-        titulo: 'Cita agendada',
-        detalle: `${datos.nombreMascota(v.mascotaId)} · ${fmtCorto(v.fecha)} ${v.hora}`,
-        tipo: 'exito',
-      })
-    } else {
-      datos.actualizarCita(id, v)
-      toast({ titulo: 'Cita actualizada', tipo: 'exito' })
+    try {
+      if (id == null) {
+        await datos.crearCita({ ...v, estado: 'Confirmada' })
+        toast({ titulo: 'Cita agendada', detalle: `${datos.nombreMascota(v.mascotaId)} · ${fmtCorto(v.fecha)} ${v.hora}`, tipo: 'exito' })
+      } else {
+        await datos.actualizarCita(id, v)
+        toast({ titulo: 'Cita actualizada', tipo: 'exito' })
+      }
+    } catch (error) {
+      toast({ titulo: 'No se pudo guardar la cita', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+      throw error
     }
   }
 
-  function cambiarEstado(cita: Cita, nuevo: EstadoCita) {
-    datos.cambiarEstadoCita(cita.id, nuevo)
-    toast({
-      titulo: `Cita ${nuevo.toLowerCase()}`,
-      detalle: datos.nombreMascota(cita.mascotaId),
-      tipo: 'info',
-    })
+  async function cambiarEstado(cita: Cita, nuevo: EstadoCita) {
+    try {
+      await datos.cambiarEstadoCita(cita.id, nuevo)
+      toast({ titulo: `Cita ${nuevo.toLowerCase()}`, detalle: datos.nombreMascota(cita.mascotaId), tipo: 'info' })
+    } catch (error) {
+      toast({ titulo: 'No se pudo cambiar el estado', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    }
   }
 
   const facturado = filtradas
@@ -375,12 +376,12 @@ export default function Citas() {
                         )}
                         <span className="ml-auto flex shrink-0 items-center gap-1">
                           {puedeGestionarAgenda && c.estado === 'Pendiente' && (
-                            <Button size="sm" variant="secondary" onClick={() => cambiarEstado(c, 'Confirmada')}>
+                            <Button size="sm" variant="secondary" onClick={() => void cambiarEstado(c, 'Confirmada')}>
                               Confirmar
                             </Button>
                           )}
                           {puedeLlamarASala && c.estado === 'Confirmada' && (
-                            <Button size="sm" variant="secondary" onClick={() => cambiarEstado(c, 'En sala')}>
+                            <Button size="sm" variant="secondary" onClick={() => void cambiarEstado(c, 'En sala')}>
                               A sala
                             </Button>
                           )}
@@ -391,7 +392,7 @@ export default function Citas() {
                             <BotonIcono
                               label="Cancelar cita"
                               className="hover:text-rose-600"
-                              onClick={() => cambiarEstado(c, 'Cancelada')}
+                              onClick={() => void cambiarEstado(c, 'Cancelada')}
                             >
                               <CloseIcon className="h-4 w-4" />
                             </BotonIcono>
