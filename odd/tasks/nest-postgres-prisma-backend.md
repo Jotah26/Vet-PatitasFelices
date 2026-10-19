@@ -74,7 +74,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; charge integrity and method validation span multiple modules.
     - Acceptance: staff can register and read payments with validated methods and amounts.
     - Checks: focused Jest e2e tests.
-  - [ ] B05.5 — Add reminder computation or persistence for vaccines and appointments.
+  - [x] B05.5 — Add reminder computation or persistence for vaccines and appointments.
     - Route: delegated; derived scheduling rules span existing modules.
     - Acceptance: due vaccine and appointment reminders are exposed per pet or owner.
     - Checks: focused Jest e2e tests.
@@ -266,4 +266,18 @@ The current React application stores veterinary, clinical, inventory, and sessio
 - B05.4 rollback boundary: revert migration `20261006030000_add_payments` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/payments/`, its import from `backend/src/app.module.ts`, the `Payment` schema model and relations, `backend/test/payments.e2e-spec.ts`, `backend/test/payments-persistence.integration.sql`, and this B05.4 evidence. B01–B05.3 behavior remains independent.
 
 ## Next step
-Continue with B05.5.
+- B05.5 adds derived `GET /reminders` results for due vaccines within 30 days and active appointments within 10 days. Staff can filter by `petId`; owner-role tokens are restricted to their linked owner and owned pets. No reminder table or duplicate persistence was introduced.
+- TDD evidence for B05.5:
+  - RED: `npm test -- --runInBand test/reminders.e2e-spec.ts` failed before implementation (1 suite failed; 2 tests failed) because `/reminders` returned `404` rather than the expected authenticated response.
+  - GREEN: after adding the reminders module, owner scoping, date windows, and staff filtering, the focused command passed (1 suite, 2 tests), covering authentication/owner scope and vaccine/appointment reminder derivation.
+  - REFACTOR: introduced an explicit reminder union type after TypeScript rejected mixing vaccine and appointment reminder shapes; the focused suite passed again.
+- Observed B05.5 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/reminders.e2e-spec.ts` — passed (1 suite, 2 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (12 suites, 32 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+- B05.5 rollback boundary: remove `backend/src/reminders/`, its import from `backend/src/app.module.ts`, `backend/test/reminders.e2e-spec.ts`, and this B05.5 evidence. B01–B05.4 persistence and behavior remain independent.
+
+## Next step
+Begin B06: migrate the frontend data provider from localStorage to authenticated API clients.
