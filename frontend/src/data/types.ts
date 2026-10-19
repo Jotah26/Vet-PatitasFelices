@@ -351,6 +351,7 @@ export type Accion =
   | { tipo: 'ATENCION_REGISTRAR'; datos: PayloadAtencion }
   | { tipo: 'RESTABLECER' }
   | { tipo: 'API_PROPIETARIOS_MASCOTAS'; datos: { propietarios: Propietario[]; mascotas: Mascota[] } }
+  | { tipo: 'API_CITAS'; datos: Cita[] }
   | { tipo: 'API_SOLICITUDES'; datos: Solicitud[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
 

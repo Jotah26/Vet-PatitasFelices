@@ -1,8 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { AuthenticatedRequest, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { STAFF_ROLES } from '../auth/staff-roles';
+import { RoleKey } from '../generated/prisma/client';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
@@ -22,6 +23,12 @@ export class AppointmentsController {
   @Get()
   findAll() {
     return this.appointments.findAll();
+  }
+
+  @Get('mine')
+  @Roles(RoleKey.OWNER)
+  findMine(@Req() request: AuthenticatedRequest) {
+    return this.appointments.findMine(request.user!.sub);
   }
 
   @Get(':id')

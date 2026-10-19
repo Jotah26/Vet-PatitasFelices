@@ -20,6 +20,10 @@ describe('Staff appointment lifecycle', () => {
   let ownerToken: string;
   const appointments = new Map<number, Appointment>();
   let nextAppointmentId = 1;
+  const pets = new Map([
+    [1, { id: 1, ownerId: 101 }],
+    [2, { id: 2, ownerId: 202 }],
+  ]);
   const conflict = { code: 'P2002' };
   const notFound = { code: 'P2025' };
   const scheduledAt = '2031-02-03T10:00:00.000Z';
@@ -31,7 +35,8 @@ describe('Staff appointment lifecycle', () => {
       [3, { id: 3, status: 'ACTIVE', role: { key: 'RECEPTIONIST' } }],
     ]);
     const prisma = {
-      pet: { findUnique: jest.fn(({ where }: { where: { id: number } }) => (where.id === 1 ? { id: 1 } : null)) },
+      pet: { findUnique: jest.fn(({ where }: { where: { id: number } }) => pets.get(where.id) ?? null) },
+      owner: { findUnique: jest.fn(({ where }: { where: { userId: number } }) => (where.userId === 11 ? { id: 101 } : null)) },
       user: { findUnique: jest.fn(({ where }: { where: { id: number } }) => veterinarians.get(where.id) ?? null) },
       appointment: {
         create: jest.fn(({ data }: { data: Omit<Appointment, 'id' | 'status'> & { status?: Appointment['status'] } }) => {
@@ -51,7 +56,10 @@ describe('Staff appointment lifecycle', () => {
           appointments.set(appointment.id, appointment);
           return appointment;
         }),
-        findMany: jest.fn(() => [...appointments.values()]),
+        findMany: jest.fn((args?: { where?: { pet?: { ownerId?: number } } }) => {
+          const ownerId = args?.where?.pet?.ownerId;
+          return [...appointments.values()].filter((appointment) => ownerId === undefined || pets.get(appointment.petId)?.ownerId === ownerId);
+        }),
         findUnique: jest.fn(({ where }: { where: { id: number } }) => appointments.get(where.id) ?? null),
         update: jest.fn(({ where, data }: { where: { id: number }; data: Partial<Appointment> }) => {
           const appointment = appointments.get(where.id);
@@ -104,6 +112,21 @@ describe('Staff appointment lifecycle', () => {
   it('requires an authenticated staff role', async () => {
     await request(app.getHttpServer()).get('/appointments').expect(401);
     await request(app.getHttpServer()).get('/appointments').set('Authorization', `Bearer ${ownerToken}`).expect(403);
+  });
+
+  it('allows owners to read only appointments for pets they own', async () => {
+    appointments.set(1, { id: 1, scheduledAt: new Date(scheduledAt), petId: 1, veterinarianId: 1, reason: 'Owned pet', status: 'PENDING' });
+    appointments.set(2, { id: 2, scheduledAt: new Date('2031-02-03T13:00:00.000Z'), petId: 2, veterinarianId: 1, reason: 'Other owner', status: 'PENDING' });
+
+    const ownerAppointments = await request(app.getHttpServer())
+      .get('/appointments/mine')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    expect(ownerAppointments.body).toEqual([expect.objectContaining({ petId: 1 })]);
+    expect(ownerAppointments.body).not.toEqual(expect.arrayContaining([expect.objectContaining({ petId: 2 })]));
+    appointments.clear();
+    nextAppointmentId = 1;
   });
 
   it('rejects inactive and non-veterinarian assignments', async () => {

@@ -30,6 +30,17 @@ export class AppointmentsService {
     return this.prisma.appointment.findMany();
   }
 
+  async findMine(userId: number) {
+    const owner = await this.prisma.owner.findUnique({ where: { userId } });
+    if (!owner) {
+      return [];
+    }
+    return this.prisma.appointment.findMany({
+      where: { pet: { ownerId: owner.id } },
+      orderBy: [{ scheduledAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   async findOne(id: number) {
     const appointment = await this.prisma.appointment.findUnique({ where: { id } });
     if (!appointment) {

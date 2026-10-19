@@ -358,5 +358,18 @@ The current React application stores veterinary, clinical, inventory, and sessio
 - B06.6 commit identity: final `HEAD` (`feat(frontend): migrate owner appointment requests to API`); the delivery record reports the immutable full hash.
 - B06.6 rollback boundary: revert only the B06.6 commit, or remove the appointment-request API type/mapping, owner request hydration and POST mutation in `frontend/src/data/store.tsx`, the modal's async error handling, the related action/type declarations, and this evidence. Preserve the backend appointment-request endpoints and all B06.1–B06.5 authentication, hydration, owner-pet, and staff behavior.
 
+- B06.7 adds owner-scoped appointment reads at `GET /appointments/mine`. The route requires JWT authentication, `RoleKey.OWNER`, and derives the owner through the authenticated user's linked owner relation before filtering appointments through `pet.ownerId`; staff `/appointments` routes remain unchanged. Owner portal hydration replaces local/seed appointments with the backend response, maps backend statuses and timestamps to `Cita`, and leaves staff seed/API behavior intact.
+- B06.7 acceptance: an authenticated owner sees only appointments belonging to pets owned by the linked owner; appointments are returned in stable scheduled-time/id order; no client owner identifier is accepted or trusted; optional service/veterinarian relation fields map null-safely; owner appointment data is not persisted to localStorage.
+- B06.7 verification:
+  - Backend focused owner-isolation test: `npm test -- --runInBand test/appointments.e2e-spec.ts` — passed (1 suite, 5 tests), including owner-only access and cross-owner appointment exclusion.
+  - Backend authentication regression: `npm run test:auth` — passed (1 suite, 2 tests).
+  - Backend lint/build: `npm run lint` and `npm run build` — passed with no errors.
+  - Frontend lint: `npm run lint` — passed with 2 pre-existing hook dependency warnings in `frontend/src/pages/Citas.tsx` and `frontend/src/pages/Vacunas.tsx`, no errors.
+  - Frontend build: `npm run build` — passed; TypeScript and Vite production build completed.
+  - Frontend focused tests: N/A; the frontend package has no test runner or test files, so the typed provider build validates the hydration and mapping path.
+  - Runtime harness: N/A; the focused backend Jest e2e mock exercises the guarded route and owner isolation boundary.
+- B06.7 commit identity: final `HEAD` is the single Conventional Commit created for this work unit; the exact immutable hash is reported by `git rev-parse HEAD` in the delivery result.
+- B06.7 rollback boundary: revert only the B06.7 commit, or remove the `/appointments/mine` controller/service method and focused test, the frontend appointment API type/mapping/hydration action, owner-only localStorage exclusion, and this evidence. Preserve staff `/appointments`, appointment-request behavior, and all B06.1–B06.6 authentication, owner, pet, and request migrations.
+
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

@@ -65,6 +65,18 @@ export type BackendAppointmentRequest = {
   createdAt: string
 }
 
+export type BackendAppointment = {
+  id: number
+  scheduledAt: string
+  petId: number
+  veterinarianId?: number | null
+  veterinarian?: { id: number; name?: string } | null
+  serviceId?: number | null
+  service?: { id: number } | null
+  reason: string
+  status: 'PENDING' | 'CONFIRMED' | 'IN_ROOM' | 'ATTENDED' | 'CANCELLED'
+}
+
 export type RegisterOwnerRequest = {
   name: string
   email: string
