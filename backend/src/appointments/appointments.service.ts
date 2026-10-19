@@ -19,6 +19,7 @@ export class AppointmentsService {
   async create(data: CreateAppointmentDto) {
     await this.requirePet(data.petId);
     await this.requireActiveVeterinarian(data.veterinarianId);
+    if (data.serviceId !== undefined) await this.requireService(data.serviceId);
     try {
       return await this.prisma.appointment.create({ data });
     } catch (error: unknown) {
@@ -57,6 +58,7 @@ export class AppointmentsService {
     if (data.veterinarianId !== undefined) {
       await this.requireActiveVeterinarian(data.veterinarianId);
     }
+    if (data.serviceId !== undefined) await this.requireService(data.serviceId);
     try {
       return await this.prisma.appointment.update({ where: { id }, data });
     } catch (error: unknown) {
@@ -79,6 +81,12 @@ export class AppointmentsService {
   private async requirePet(id: number): Promise<void> {
     if (!(await this.prisma.pet.findUnique({ where: { id } }))) {
       throw new NotFoundException('Pet not found.');
+    }
+  }
+
+  private async requireService(id: number): Promise<void> {
+    if (!(await this.prisma.service.findUnique({ where: { id } }))) {
+      throw new NotFoundException('Service not found.');
     }
   }
 

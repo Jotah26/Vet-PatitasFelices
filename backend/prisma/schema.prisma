@@ -167,17 +167,20 @@ model Appointment {
   scheduledAt     DateTime            @map("scheduled_at")
   petId           Int                 @map("pet_id")
   veterinarianId  Int                 @map("veterinarian_id")
+  serviceId       Int?                @map("service_id")
   reason          String
   status          AppointmentStatus   @default(PENDING)
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
   pet             Pet                 @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   veterinarian    User                @relation("AppointmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  service         Service?            @relation(fields: [serviceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   resolvedRequest AppointmentRequest?
   payments        Payment[]
 
   @@index([petId])
   @@index([veterinarianId])
+  @@index([serviceId])
   @@map("appointments")
 }
 
@@ -301,6 +304,8 @@ model Service {
   active          Boolean  @default(true)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
+
+  appointments   Appointment[]
 
   @@map("services")
 }

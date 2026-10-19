@@ -95,10 +95,16 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: direct; auth endpoint, owner relation, and login form are coupled.
     - Acceptance: visitors can create only `OWNER` accounts, receive a JWT, and enter the owner portal; staff roles cannot be self-assigned.
      - Checks: frontend lint/build and backend auth/build.
-   - [x] B06.6 — Migrate owner-portal appointment request persistence to the authenticated API.
-     - Route: direct; owner portal hydration and request submission share the existing appointment-request API.
-     - Acceptance: owner requests load from `GET /appointment-requests`, creation uses `POST /appointment-requests` without a client owner identifier, backend authorization remains JWT-derived, and failures do not report success or persist local request state.
-     - Checks: frontend lint/build and backend appointment-request/auth tests, lint, and build.
+    - [x] B06.6 — Migrate owner-portal appointment request persistence to the authenticated API.
+      - Route: direct; owner portal hydration and request submission share the existing appointment-request API.
+      - Acceptance: owner requests load from `GET /appointment-requests`, creation uses `POST /appointment-requests` without a client owner identifier, backend authorization remains JWT-derived, and failures do not report success or persist local request state.
+      - Checks: frontend lint/build and backend appointment-request/auth tests, lint, and build.
+
+    - [x] B06.10 — Migrate the staff service catalog to the authenticated services API.
+      - Acceptance: authenticated staff hydrate services from `GET /services`; staff create, update, and delete through the corresponding API endpoints; owner sessions can read services for portal display but cannot write; appointment service IDs remain persisted and mapped to the existing frontend shape; failed mutations do not update local state or report success.
+      - Evidence: frontend lint/build; backend service, auth, appointment, lint, and build checks recorded below.
+      - Commit: recorded in the delivery evidence after verification.
+      - Rollback boundary: revert the B06.10 commit, including service hydration/mutations, the appointment service relation migration, and this checklist evidence; do not revert unrelated owner, pet, appointment-request, or auth work.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
@@ -383,7 +389,17 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Verification: frontend lint/build; backend appointment/auth tests, lint, and build. Frontend has no test runner, so typed build validation is the focused frontend check.
   - Evidence: `frontend/src/data/store.tsx` maps backend timestamps/statuses and awaits server responses for appointment mutations; `Citas.tsx` and dashboard appointment actions report failures; `ModalCita.tsx` remains open after failed saves. Runtime harness: N/A; no new runtime harness exists for the frontend package.
   - Commit identity: the single Conventional Commit created for B06.9; immutable hash recorded in the delivery result.
-  - Rollback boundary: revert only the B06.9 commit, or remove staff appointment hydration/API mutation calls in `frontend/src/data/store.tsx`, async appointment handling in `frontend/src/pages/Citas.tsx`, `frontend/src/components/ModalCita.tsx`, and dashboard appointment actions, plus this evidence. Preserve B06.1–B06.8 authentication, owner appointment/request behavior, backend appointment endpoints, and unrelated clinical/payment workflows.
+ - Rollback boundary: revert only the B06.9 commit, or remove staff appointment hydration/API mutation calls in `frontend/src/data/store.tsx`, async appointment handling in `frontend/src/pages/Citas.tsx`, `frontend/src/components/ModalCita.tsx`, and dashboard appointment actions, plus this evidence. Preserve B06.1–B06.8 authentication, owner appointment/request behavior, backend appointment endpoints, and unrelated clinical/payment workflows.
+
+- B06.10 verification:
+  - Frontend `npm run build` — passed; TypeScript and Vite production build completed.
+  - Frontend `npm run lint` — passed with 2 pre-existing hook dependency warnings in `frontend/src/pages/Citas.tsx` and `frontend/src/pages/Vacunas.tsx`, no errors.
+  - Backend service authorization/CRUD test: `npm test -- --runInBand test/services.e2e-spec.ts` — passed (1 suite, 2 tests), including owner read-only access and staff CRUD.
+  - Backend appointment/auth tests: `npm test -- --runInBand test/auth.e2e-spec.ts test/appointments.e2e-spec.ts` — passed (2 suites, 7 tests).
+  - Backend Prisma validation, lint, and build — passed.
+  - Runtime harness: N/A; focused Jest e2e mocks exercise the guarded service boundary and appointment service-reference validation.
+- B06.10 commit identity: final `HEAD` is the single Conventional Commit created for this work unit; the exact immutable hash is reported by `git rev-parse HEAD` in the delivery result.
+- B06.10 rollback boundary: revert only the B06.10 commit, including service hydration/mutations, `backend/prisma/migrations/20261019000000_add_appointment_services`, appointment service DTO/model support, the focused service test, and this evidence. Preserve B06.1–B06.9 behavior.
 
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

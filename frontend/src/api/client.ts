@@ -52,6 +52,15 @@ export type BackendPet = {
   photoDataUrl?: string
 }
 
+export type BackendService = {
+  id: number
+  concept: string
+  description: string
+  price: number
+  durationMinutes: number
+  active: boolean
+}
+
 export type BackendAppointmentRequest = {
   id: number
   ownerId: number

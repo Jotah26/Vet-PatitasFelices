@@ -20,6 +20,12 @@ export class UpdateAppointmentDto {
   veterinarianId?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  serviceId?: number;
+
+  @IsOptional()
   @IsString()
   @MinLength(1)
   reason?: string;

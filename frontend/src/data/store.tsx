@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendOwner, BackendPet } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendOwner, BackendPet, BackendService } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -67,6 +67,15 @@ const mapPet = (pet: BackendPet): Mascota => ({
   propietarioId: pet.ownerId,
   antecedentes: pet.medicalBackground,
   ...(pet.photoDataUrl ? { foto: pet.photoDataUrl } : {}),
+})
+
+const mapService = (service: BackendService): Servicio => ({
+  id: service.id,
+  concepto: service.concept,
+  descripcion: service.description,
+  precio: Number(service.price),
+  duracion: service.durationMinutes,
+  activo: service.active,
 })
 
 const mapAppointmentRequest = (request: BackendAppointmentRequest): Solicitud => {
@@ -174,9 +183,9 @@ function cargar(): Estado {
     if (!enviados || typeof enviados !== 'object' || Array.isArray(enviados)) {
       migrado.recordatoriosEnviados = {}
     }
-    return migrado
+    return { ...migrado, tarifario: [] }
   } catch {
-    return crearSemilla()
+    return { ...crearSemilla(), tarifario: [] }
   }
 }
 
@@ -188,6 +197,8 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, citas: accion.datos }
     case 'API_SOLICITUDES':
       return { ...estado, solicitudes: accion.datos }
+    case 'API_SERVICIOS':
+      return { ...estado, tarifario: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     case 'API_SOLICITUD_ACTUALIZAR':
@@ -546,8 +557,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendPet[]>(ownerPortal ? '/pets/mine' : '/pets', {}, accessToken()),
       apiRequest<BackendAppointmentRequest[]>(requestsPath, {}, accessToken()),
       apiRequest<BackendAppointment[]>(ownerPortal ? '/appointments/mine' : '/appointments', {}, accessToken()),
+      apiRequest<BackendService[]>('/services', {}, accessToken()),
     ])
-      .then(([owners, pets, requests, appointments]) => {
+      .then(([owners, pets, requests, appointments, services]) => {
         if (!activo) return
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
@@ -558,6 +570,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         })
         dispatch({ tipo: 'API_SOLICITUDES', datos: requests.map(mapAppointmentRequest) })
         dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
+        dispatch({ tipo: 'API_SERVICIOS', datos: services.map(mapService) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -667,6 +680,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             scheduledAt: new Date(`${payload.fecha}T${payload.hora}:00`).toISOString(),
             petId: payload.mascotaId,
             veterinarianId: payload.vetId,
+            serviceId: payload.servicioId,
             reason: payload.motivo,
           }),
         }, accessToken())
@@ -690,6 +704,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             ...(cambios.fecha && cambios.hora ? { scheduledAt: new Date(`${cambios.fecha}T${cambios.hora}:00`).toISOString() } : {}),
             ...(cambios.mascotaId !== undefined ? { petId: cambios.mascotaId } : {}),
             ...(cambios.vetId !== undefined ? { veterinarianId: cambios.vetId } : {}),
+            ...(cambios.servicioId !== undefined ? { serviceId: cambios.servicioId } : {}),
             ...(cambios.motivo !== undefined ? { reason: cambios.motivo } : {}),
           }),
         }, accessToken())
@@ -759,9 +774,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       actualizarUsuario: (id, cambios) => dispatch({ tipo: 'USUARIO_ACTUALIZAR', datos: { id, cambios } }),
       eliminarUsuario: (id) => dispatch({ tipo: 'USUARIO_ELIMINAR', datos: { id } }),
 
-      crearServicio: (payload) => dispatch({ tipo: 'SERVICIO_CREAR', datos: payload }),
-      actualizarServicio: (id, cambios) => dispatch({ tipo: 'SERVICIO_ACTUALIZAR', datos: { id, cambios } }),
-      eliminarServicio: (id) => dispatch({ tipo: 'SERVICIO_ELIMINAR', datos: { id } }),
+      crearServicio: async (payload) => {
+        const service = await apiRequest<BackendService>('/services', {
+          method: 'POST',
+          body: JSON.stringify({ concept: payload.concepto, description: payload.descripcion, price: payload.precio, durationMinutes: payload.duracion, active: payload.activo ?? true }),
+        }, accessToken())
+        dispatch({ tipo: 'SERVICIO_CREAR', datos: mapService(service) })
+      },
+      actualizarServicio: async (id, cambios) => {
+        const service = await apiRequest<BackendService>(`/services/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            ...(cambios.concepto !== undefined ? { concept: cambios.concepto } : {}),
+            ...(cambios.descripcion !== undefined ? { description: cambios.descripcion } : {}),
+            ...(cambios.precio !== undefined ? { price: cambios.precio } : {}),
+            ...(cambios.duracion !== undefined ? { durationMinutes: cambios.duracion } : {}),
+            ...(cambios.activo !== undefined ? { active: cambios.activo } : {}),
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'SERVICIO_ACTUALIZAR', datos: { id, cambios: mapService(service) } })
+      },
+      eliminarServicio: async (id) => {
+        await apiRequest<null>(`/services/${id}`, { method: 'DELETE' }, accessToken())
+        dispatch({ tipo: 'SERVICIO_ELIMINAR', datos: { id } })
+      },
 
       crearMedicamento: (payload) => dispatch({ tipo: 'MEDICAMENTO_CREAR', datos: payload }),
       actualizarMedicamento: (id, cambios) => dispatch({ tipo: 'MEDICAMENTO_ACTUALIZAR', datos: { id, cambios } }),

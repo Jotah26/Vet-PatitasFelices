@@ -353,6 +353,7 @@ export type Accion =
   | { tipo: 'API_PROPIETARIOS_MASCOTAS'; datos: { propietarios: Propietario[]; mascotas: Mascota[] } }
   | { tipo: 'API_CITAS'; datos: Cita[] }
   | { tipo: 'API_SOLICITUDES'; datos: Solicitud[] }
+  | { tipo: 'API_SERVICIOS'; datos: Servicio[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
   | { tipo: 'API_SOLICITUD_ACTUALIZAR'; datos: Solicitud }
 
@@ -412,9 +413,9 @@ export interface DatosApi extends Estado {
   crearUsuario: (payload: Omit<Usuario, 'id'>) => void
   actualizarUsuario: (id: number, cambios: Partial<Usuario>) => void
   eliminarUsuario: (id: number) => void
-  crearServicio: (payload: NuevoServicio) => void
-  actualizarServicio: (id: number, cambios: Partial<Servicio>) => void
-  eliminarServicio: (id: number) => void
+  crearServicio: (payload: NuevoServicio) => Promise<void>
+  actualizarServicio: (id: number, cambios: Partial<Servicio>) => Promise<void>
+  eliminarServicio: (id: number) => Promise<void>
   crearMedicamento: (payload: Omit<Medicamento, 'id'>) => void
   actualizarMedicamento: (id: number, cambios: Partial<Medicamento>) => void
   eliminarMedicamento: (id: number) => void
