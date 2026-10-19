@@ -102,6 +102,7 @@ export type BackendConsultation = {
   treatment: string
   recommendations: string
   status: 'COMPLETED' | 'IN_FOLLOWUP'
+  attachments?: BackendAttachment[]
 }
 
 export type BackendAttachment = {

@@ -127,7 +127,7 @@ const attentionTypes: Record<BackendConsultation['type'], Consulta['tipo']> = {
   DEWORMING: 'Desparasitación',
 }
 
-const mapConsultation = (consultation: BackendConsultation, attachments: BackendAttachment[] = []): Consulta => ({
+const mapConsultation = (consultation: BackendConsultation, attachments: BackendAttachment[] = consultation.attachments ?? []): Consulta => ({
   id: consultation.id,
   mascotaId: consultation.petId,
   fecha: consultation.occurredAt.slice(0, 10),
@@ -667,6 +667,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     dispatch({ tipo: 'API_USUARIOS', datos: [] })
     dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     dispatch({ tipo: 'API_CITAS', datos: [] })
+    dispatch({ tipo: 'API_CONSULTAS', datos: [] })
     if (ownerPortal) dispatch({ tipo: 'API_RECETAS', datos: [] })
     const requestsPath = ownerPortal ? '/appointment-requests' : '/appointment-requests/staff'
     Promise.all([
@@ -676,7 +677,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendAppointment[]>(ownerPortal ? '/appointments/mine' : '/appointments', {}, accessToken()),
       apiRequest<BackendService[]>('/services', {}, accessToken()),
       apiRequest<BackendVaccine[]>(ownerPortal ? '/vaccines/mine' : '/vaccines', {}, accessToken()),
-      ownerPortal ? Promise.resolve([] as BackendConsultation[]) : apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
+      apiRequest<BackendConsultation[]>(ownerPortal ? '/consultations/mine' : '/consultations', {}, accessToken()),
       apiRequest<BackendPrescription[]>(ownerPortal ? '/prescriptions/mine' : '/prescriptions', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendMedication[]) : apiRequest<BackendMedication[]>('/medications', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendPayment[]) : apiRequest<BackendPayment[]>('/payments', {}, accessToken()),
@@ -684,9 +685,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ])
       .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions, medications, payments, users]) => {
         if (!activo) return
-        const attachmentLists = await Promise.all(
-          consultations.map((consultation) => apiRequest<BackendAttachment[]>(`/consultations/${consultation.id}/attachments`, {}, accessToken())),
-        )
+        const attachmentLists = ownerPortal
+          ? consultations.map((consultation) => consultation.attachments ?? [])
+          : await Promise.all(
+              consultations.map((consultation) => apiRequest<BackendAttachment[]>(`/consultations/${consultation.id}/attachments`, {}, accessToken())),
+            )
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
           datos: {
@@ -728,7 +731,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           citas: user?.rol === 'propietario' ? [] : estado.citas,
           vacunas: [],
           solicitudes: [],
-          recetas: user?.rol === 'propietario' ? [] : estado.recetas,
+           recetas: user?.rol === 'propietario' ? [] : estado.recetas,
+           consultas: [],
+           archivos: [],
           medicamentos: [],
           pagos: [],
         }),

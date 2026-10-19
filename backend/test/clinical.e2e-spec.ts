@@ -35,9 +35,12 @@ describe('Clinical care vertical', () => {
               : null,
         ),
       },
-      consultation: {
-        findMany: jest.fn(({ where }: { where?: { petId?: number } } = {}) =>
-          [...consultations.values()].filter((item) => where?.petId === undefined || item.petId === where.petId),
+        consultation: {
+          findMany: jest.fn(({ where }: { where?: { petId?: number; pet?: { ownerId: number } } } = {}) =>
+          [...consultations.values()].filter((item) =>
+            (where?.petId === undefined || item.petId === where.petId) &&
+            (where?.pet?.ownerId === undefined || pets.get(item.petId as number)?.ownerId === where.pet.ownerId),
+          ),
         ),
         findUnique: jest.fn(({ where }: { where: { id: number } }) => consultations.get(where.id) ?? null),
         create: jest.fn(({ data }: { data: MockCreateData }) => {
@@ -150,6 +153,17 @@ describe('Clinical care vertical', () => {
     });
     await asOwner(request(app.getHttpServer()).post('/vaccines')).send({ petId: 1, name: 'Flu' }).expect(403);
     await asStaff(request(app.getHttpServer()).delete('/vaccines/20')).expect(200);
+  });
+
+  it('isolates owner consultation reads and keeps consultation collection staff-only', async () => {
+    consultations.set(40, { id: 40, petId: 1, diagnosis: 'Owner pet' });
+    consultations.set(41, { id: 41, petId: 2, diagnosis: 'Other owner pet' });
+    await asOwner(request(app.getHttpServer()).get('/consultations')).expect(403);
+    await asOwner(request(app.getHttpServer()).get('/consultations?petId=2')).expect(403);
+    await asOwner(request(app.getHttpServer()).get('/consultations/mine')).expect(200).then((response) => {
+      expect(response.body).toEqual(expect.arrayContaining([expect.objectContaining({ id: 40 })]));
+      expect(response.body).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 41 })]));
+    });
   });
 
   it('isolates owner prescription reads and keeps prescription writes staff-only', async () => {

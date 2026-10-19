@@ -71,6 +71,28 @@ export class ClinicalService {
     return this.prisma.consultation.findMany({ where: petId === undefined ? undefined : { petId } });
   }
 
+  async listMyConsultations(userId: number) {
+    const owner = await this.prisma.owner.findUnique({ where: { userId } });
+    if (!owner) return [];
+    return this.prisma.consultation.findMany({
+      where: { pet: { ownerId: owner.id } },
+      include: {
+        attachments: {
+          select: {
+            id: true,
+            consultationId: true,
+            fileName: true,
+            mimeType: true,
+            uploadedById: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
   async getConsultation(id: number) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) {

@@ -27,6 +27,7 @@ import PortalInicio from './pages/portal/PortalInicio'
 import PortalCitas from './pages/portal/PortalCitas'
 import PortalVacunas from './pages/portal/PortalVacunas'
 import PortalRecetas from './pages/portal/PortalRecetas'
+import PortalHistorial from './pages/portal/PortalHistorial'
 import PortalMascotas from './pages/portal/PortalMascotas'
 
 function Indice() {
@@ -216,6 +217,7 @@ export default function App() {
         <Route path="/portal/citas" element={<PortalCitas />} />
         <Route path="/portal/vacunas" element={<PortalVacunas />} />
         <Route path="/portal/recetas" element={<PortalRecetas />} />
+        <Route path="/portal/historial" element={<PortalHistorial />} />
         <Route path="/portal/mascotas" element={<PortalMascotas />} />
       </Route>
 

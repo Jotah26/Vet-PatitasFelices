@@ -1,7 +1,8 @@
-import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Controller, Get, Param, ParseIntPipe, Query, Req, UseGuards } from '@nestjs/common';
+import { AuthenticatedRequest, JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { RoleKey } from '../generated/prisma/client';
 import { STAFF_ROLES } from '../auth/staff-roles';
 import { ClinicalService } from './clinical.service';
 import { OptionalIntPipe } from './optional-int.pipe';
@@ -15,6 +16,12 @@ export class ConsultationsController {
   @Get()
   findAll(@Query('petId', OptionalIntPipe) petId?: number) {
     return this.clinical.listConsultations(petId);
+  }
+
+  @Get('mine')
+  @Roles(RoleKey.OWNER)
+  findMine(@Req() request: AuthenticatedRequest) {
+    return this.clinical.listMyConsultations(request.user!.sub);
   }
 
   @Get(':id')

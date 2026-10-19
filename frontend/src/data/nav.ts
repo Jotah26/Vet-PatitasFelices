@@ -96,6 +96,7 @@ const secciones_portal: SeccionNav[] = [
     items: [
       { to: '/portal/vacunas', label: 'Vacunas', icono: SyringeIcon, perm: 'portal' },
       { to: '/portal/recetas', label: 'Recetas', icono: PrescriptionIcon, perm: 'portal' },
+      { to: '/portal/historial', label: 'Historial', icono: FileIcon, perm: 'portal' },
     ],
   },
 ]
