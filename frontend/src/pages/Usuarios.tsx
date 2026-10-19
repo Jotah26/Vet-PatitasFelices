@@ -17,6 +17,7 @@ interface UsuarioForm {
   email: string
   rol: RolClave
   estado: EstadoUsuario
+  contrasena?: string
 }
 
 const vacio = (): UsuarioForm => ({ nombre: '', email: '', rol: 'asistente', estado: 'Activo' })
@@ -36,20 +37,20 @@ export default function Usuarios() {
     etiqueta: 'usuario',
     vacio: vacio,
     alGuardar: (fila, esNuevo) => {
-      const { id, ...resto } = fila
-      const limpio = { ...resto, email: fila.email.trim().toLowerCase() }
-      if (esNuevo) datos.crearUsuario(limpio)
-      else if (id != null) datos.actualizarUsuario(id, limpio)
+      const { id, contrasena, ...resto } = fila
+      const limpio = { ...resto, email: fila.email.trim().toLowerCase(), ...(contrasena ? { contrasena } : {}) }
+      if (esNuevo) return datos.crearUsuario({ ...limpio, contrasena: contrasena ?? '' })
+      if (id != null) return datos.actualizarUsuario(id, limpio)
     },
     alBorrar: (fila) => {
-      if (fila.id != null) datos.eliminarUsuario(fila.id)
+      if (fila.id != null) return datos.eliminarUsuario(fila.id)
     },
   })
 
   const lista = useMemo(() => {
     const t = consulta.trim().toLowerCase()
     return datos.usuarios
-    .filter((u) => u.rol !== 'propietario')
+      .filter((u) => u.rol !== 'propietario')
       .filter((u) => (filtroRol === 'todos' ? true : u.rol === filtroRol))
       .filter((u) => (t ? `${u.nombre} ${u.email}`.toLowerCase().includes(t) : true))
       .sort((a, b) => a.nombre.localeCompare(b.nombre))
@@ -190,6 +191,9 @@ export default function Usuarios() {
           else if (!/^\S+@\S+\.\S+$/.test(email)) errores.email = 'El correo no es válido.'
           else if (datos.usuarios.some((u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.id !== id))
             errores.email = 'Ya existe un usuario con ese correo.'
+          const contrasena = String(fila.contrasena ?? '')
+          if (id === undefined && contrasena.length < 12) errores.contrasena = 'Use al menos 12 caracteres.'
+          if (id !== undefined && contrasena && contrasena.length < 12) errores.contrasena = 'Use al menos 12 caracteres.'
           return errores
         }}
       >
@@ -214,8 +218,16 @@ export default function Usuarios() {
                   error={errores.email}
                 />
               </FilaCampos>
+              <Input
+                label={crud.esNuevo ? 'Contraseña inicial' : 'Nueva contraseña (opcional)'}
+                type="password"
+                requerido={crud.esNuevo}
+                value={String(valores.contrasena ?? '')}
+                onChange={cambiar('contrasena')}
+                error={errores.contrasena}
+              />
               <Select label="Rol" value={String(valores.rol ?? 'asistente')} onChange={cambiar('rol')}>
-                {claves_rol.map((clave) => (
+                {claves_rol.filter((clave) => clave !== 'propietario').map((clave) => (
                   <option key={clave} value={clave}>
                     {roles[clave].label}
                   </option>
@@ -240,7 +252,7 @@ export default function Usuarios() {
       <DialogoBorrado
         crud={crud}
         mensaje={
-          crud.porBorrar ? `Se eliminará el acceso de ${crud.porBorrar.nombre} (${crud.porBorrar.email}). ¿Continuar?` : ''
+           crud.porBorrar ? `Se desactivará el acceso de ${crud.porBorrar.nombre} (${crud.porBorrar.email}). ¿Continuar?` : ''
         }
       />
     </div>

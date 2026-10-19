@@ -13,6 +13,7 @@ import { PetsModule } from './pets/pets.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ServicesModule } from './services/services.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ServicesModule } from './services/services.module';
     PaymentsModule,
     RemindersModule,
     ServicesModule,
+    UsersModule,
   ],
   controllers: [HealthController],
 })

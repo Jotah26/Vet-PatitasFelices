@@ -9,6 +9,14 @@ export type BackendUser = {
   ownerId?: number
 }
 
+export type BackendManagedUser = {
+  id: number
+  email: string
+  name: string
+  role: Exclude<BackendUser['role'], 'OWNER'>
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {
     ...options,

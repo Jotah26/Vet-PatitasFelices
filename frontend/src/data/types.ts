@@ -378,6 +378,7 @@ export type Accion =
   | { tipo: 'API_RECETAS'; datos: Receta[] }
   | { tipo: 'API_MEDICAMENTOS'; datos: Medicamento[] }
   | { tipo: 'API_PAGOS'; datos: Pago[] }
+  | { tipo: 'API_USUARIOS'; datos: Usuario[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
   | { tipo: 'API_SOLICITUD_ACTUALIZAR'; datos: Solicitud }
 
@@ -436,9 +437,9 @@ export interface DatosApi extends Estado {
   crearPropietario: (payload: Omit<Propietario, 'id'>) => Promise<void>
   actualizarPropietario: (id: number, cambios: Partial<Propietario>) => Promise<void>
   eliminarPropietario: (id: number) => Promise<void>
-  crearUsuario: (payload: Omit<Usuario, 'id'>) => void
-  actualizarUsuario: (id: number, cambios: Partial<Usuario>) => void
-  eliminarUsuario: (id: number) => void
+  crearUsuario: (payload: Omit<Usuario, 'id'> & { contrasena: string }) => Promise<void>
+  actualizarUsuario: (id: number, cambios: Partial<Usuario> & { contrasena?: string }) => Promise<void>
+  eliminarUsuario: (id: number) => Promise<void>
   crearServicio: (payload: NuevoServicio) => Promise<void>
   actualizarServicio: (id: number, cambios: Partial<Servicio>) => Promise<void>
   eliminarServicio: (id: number) => Promise<void>

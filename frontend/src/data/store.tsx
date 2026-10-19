@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendMedication, BackendOwner, BackendPayment, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendManagedUser, BackendMedication, BackendOwner, BackendPayment, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -25,11 +25,20 @@ import type {
   Mascota,
   Propietario,
   Adjunto,
+  Usuario,
 } from '../data/types'
 
 /* Se sube la versión cuando cambia la semilla: al abrir la app se descartan los
  * datos guardados con la versión anterior y se regeneran con las fechas al día. */
 const clave_bd = 'pf_db_v3'
+
+const mapManagedUser = (user: BackendManagedUser): Usuario => ({
+  id: user.id,
+  nombre: user.name,
+  email: user.email,
+  rol: ({ ADMINISTRATOR: 'admin', VETERINARIAN: 'vet', RECEPTIONIST: 'recepcionista', ASSISTANT: 'asistente' }[user.role]) as Usuario['rol'],
+  estado: user.status === 'ACTIVE' ? 'Activo' : 'Inactivo',
+})
 
 const especiesBackend: Record<Mascota['especie'], string> = {
   Perro: 'DOG',
@@ -305,9 +314,9 @@ function cargar(): Estado {
     if (!enviados || typeof enviados !== 'object' || Array.isArray(enviados)) {
       migrado.recordatoriosEnviados = {}
     }
-    return { ...migrado, tarifario: [], vacunas: [] }
+    return { ...migrado, usuarios: [], tarifario: [], vacunas: [] }
   } catch {
-    return { ...crearSemilla(), tarifario: [], vacunas: [] }
+    return { ...crearSemilla(), usuarios: [], tarifario: [], vacunas: [] }
   }
 }
 
@@ -331,6 +340,8 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, medicamentos: accion.datos }
     case 'API_PAGOS':
       return { ...estado, pagos: accion.datos }
+    case 'API_USUARIOS':
+      return { ...estado, usuarios: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     case 'API_SOLICITUD_ACTUALIZAR':
@@ -653,6 +664,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ownerPortal = user.rol === 'propietario'
     dispatch({ tipo: 'API_MEDICAMENTOS', datos: [] })
     dispatch({ tipo: 'API_PAGOS', datos: [] })
+    dispatch({ tipo: 'API_USUARIOS', datos: [] })
     dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     dispatch({ tipo: 'API_CITAS', datos: [] })
     if (ownerPortal) dispatch({ tipo: 'API_RECETAS', datos: [] })
@@ -668,8 +680,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendPrescription[]>(ownerPortal ? '/prescriptions/mine' : '/prescriptions', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendMedication[]) : apiRequest<BackendMedication[]>('/medications', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendPayment[]) : apiRequest<BackendPayment[]>('/payments', {}, accessToken()),
+      user.rol === 'admin' ? apiRequest<BackendManagedUser[]>('/users', {}, accessToken()) : Promise.resolve([] as BackendManagedUser[]),
     ])
-      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions, medications, payments]) => {
+      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions, medications, payments, users]) => {
         if (!activo) return
         const attachmentLists = await Promise.all(
           consultations.map((consultation) => apiRequest<BackendAttachment[]>(`/consultations/${consultation.id}/attachments`, {}, accessToken())),
@@ -689,6 +702,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
         dispatch({ tipo: 'API_MEDICAMENTOS', datos: medications.map(mapMedication) })
         dispatch({ tipo: 'API_PAGOS', datos: payments.map(mapPayment) })
+        dispatch({ tipo: 'API_USUARIOS', datos: users.map(mapManagedUser) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -708,6 +722,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         clave_bd,
         JSON.stringify({
           ...estado,
+          usuarios: [],
           propietarios: [],
           mascotas: [],
           citas: user?.rol === 'propietario' ? [] : estado.citas,
@@ -991,9 +1006,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'PROPIETARIO_ELIMINAR', datos: { id } })
       },
 
-      crearUsuario: (payload) => dispatch({ tipo: 'USUARIO_CREAR', datos: payload }),
-      actualizarUsuario: (id, cambios) => dispatch({ tipo: 'USUARIO_ACTUALIZAR', datos: { id, cambios } }),
-      eliminarUsuario: (id) => dispatch({ tipo: 'USUARIO_ELIMINAR', datos: { id } }),
+      crearUsuario: async (payload) => {
+        const user = await apiRequest<BackendManagedUser>('/users', { method: 'POST', body: JSON.stringify({ name: payload.nombre, email: payload.email, password: payload.contrasena, role: { admin: 'ADMINISTRATOR', vet: 'VETERINARIAN', recepcionista: 'RECEPTIONIST', asistente: 'ASSISTANT', propietario: 'OWNER' }[payload.rol] }) }, accessToken())
+        dispatch({ tipo: 'USUARIO_CREAR', datos: mapManagedUser(user) })
+      },
+      actualizarUsuario: async (id, cambios) => {
+        const user = await apiRequest<BackendManagedUser>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify({ ...(cambios.nombre !== undefined ? { name: cambios.nombre } : {}), ...(cambios.email !== undefined ? { email: cambios.email } : {}), ...(cambios.contrasena ? { password: cambios.contrasena } : {}), ...(cambios.estado !== undefined ? { status: cambios.estado === 'Activo' ? 'ACTIVE' : 'INACTIVE' } : {}), ...(cambios.rol !== undefined ? { role: { admin: 'ADMINISTRATOR', vet: 'VETERINARIAN', recepcionista: 'RECEPTIONIST', asistente: 'ASSISTANT', propietario: 'OWNER' }[cambios.rol] } : {}) }) }, accessToken())
+        dispatch({ tipo: 'USUARIO_ACTUALIZAR', datos: { id, cambios: mapManagedUser(user) } })
+      },
+      eliminarUsuario: async (id) => {
+        const user = await apiRequest<BackendManagedUser>(`/users/${id}`, { method: 'DELETE' }, accessToken())
+        dispatch({ tipo: 'USUARIO_ACTUALIZAR', datos: { id, cambios: mapManagedUser(user) } })
+      },
 
       crearServicio: async (payload) => {
         const service = await apiRequest<BackendService>('/services', {
