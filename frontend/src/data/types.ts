@@ -365,8 +365,6 @@ export type Accion =
   | { tipo: 'MEDICAMENTO_ACTUALIZAR'; datos: { id: number; cambios: Partial<Medicamento> } }
   | { tipo: 'MEDICAMENTO_ELIMINAR'; datos: { id: number } }
   | { tipo: 'MEDICAMENTO_REPONER'; datos: { id: number; cantidad: number } }
-  | { tipo: 'PAGO_CREAR'; datos: NuevoPago }
-  | { tipo: 'PAGO_ANULAR'; datos: { id: number; citaId?: number } }
   | { tipo: 'RECORDATORIO_ALTERNAR'; datos: { clave: string } }
   | { tipo: 'ARCHIVO_ELIMINAR'; datos: { id: number } }
   | { tipo: 'ATENCION_REGISTRAR'; datos: PayloadAtencion }
@@ -379,6 +377,7 @@ export type Accion =
   | { tipo: 'API_CONSULTAS'; datos: Consulta[] }
   | { tipo: 'API_RECETAS'; datos: Receta[] }
   | { tipo: 'API_MEDICAMENTOS'; datos: Medicamento[] }
+  | { tipo: 'API_PAGOS'; datos: Pago[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
   | { tipo: 'API_SOLICITUD_ACTUALIZAR'; datos: Solicitud }
 
@@ -452,8 +451,8 @@ export interface DatosApi extends Estado {
   crearReceta: (payload: NuevaReceta) => void
   marcarReceta: (id: number, estado: EstadoReceta) => void
   eliminarReceta: (id: number) => void
-  registrarPago: (payload: NuevoPago) => void
-  anularPago: (id: number, citaId?: number) => void
+  registrarPago: (payload: NuevoPago) => Promise<void>
+  anularPago: (id: number, citaId?: number) => Promise<void>
   alternarRecordatorio: (clave: string) => void
   recordatorios: Recordatorio[]
   eliminarArchivo: (id: number) => void

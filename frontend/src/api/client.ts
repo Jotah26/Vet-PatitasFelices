@@ -144,6 +144,16 @@ export type BackendAppointment = {
   status: 'PENDING' | 'CONFIRMED' | 'IN_ROOM' | 'ATTENDED' | 'CANCELLED'
 }
 
+export type BackendPayment = {
+  id: number
+  appointmentId: number | null
+  paidAt: string
+  method: 'YAPE' | 'CASH' | 'CARD' | 'TRANSFER'
+  amount: number
+  reference: string | null
+  status: 'ACTIVE' | 'VOIDED'
+}
+
 export type RegisterOwnerRequest = {
   name: string
   email: string

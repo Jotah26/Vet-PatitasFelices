@@ -28,6 +28,7 @@ export default function Caja() {
   const [cobrando, setCobrando] = useState<Cita | null>(null)
   const [metodo, setMetodo] = useState<MetodoPago>('Efectivo')
   const [monto, setMonto] = useState('')
+  const [procesando, setProcesando] = useState(false)
 
   const porCobrar = useMemo(() => datos.porCobrar(), [datos])
 
@@ -64,22 +65,41 @@ export default function Caja() {
     setMonto(String(datos.servicio(cita.servicioId)?.precio ?? 0))
   }
 
-  function confirmar() {
+  async function confirmar() {
     if (!cobrando) return
     const valor = Number(monto)
     if (!valor || valor <= 0) return
-    datos.registrarPago({ citaId: cobrando.id, monto: valor, metodo })
-    toast({
-      titulo: 'Pago registrado',
-      detalle: `${moneda(valor)} por ${datos.nombreMascota(cobrando.mascotaId)}.`,
-      tipo: 'exito',
-    })
-    setCobrando(null)
+    setProcesando(true)
+    try {
+      await datos.registrarPago({ citaId: cobrando.id, monto: valor, metodo })
+      toast({
+        titulo: 'Pago registrado',
+        detalle: `${moneda(valor)} por ${datos.nombreMascota(cobrando.mascotaId)}.`,
+        tipo: 'exito',
+      })
+      setCobrando(null)
+    } catch (error) {
+      toast({
+        tipo: 'error',
+        titulo: 'No se pudo registrar el pago',
+        detalle: error instanceof Error ? error.message : 'Intente nuevamente.',
+      })
+    } finally {
+      setProcesando(false)
+    }
   }
 
-  function anular(p: Pago) {
-    datos.anularPago(p.id, p.citaId)
-    toast({ titulo: 'Pago anulado', detalle: 'La atención vuelve a la lista de por cobrar.', tipo: 'info' })
+  async function anular(p: Pago) {
+    try {
+      await datos.anularPago(p.id, p.citaId)
+      toast({ titulo: 'Pago anulado', detalle: 'La atención vuelve a la lista de por cobrar.', tipo: 'info' })
+    } catch (error) {
+      toast({
+        tipo: 'error',
+        titulo: 'No se pudo anular el pago',
+        detalle: error instanceof Error ? error.message : 'Intente nuevamente.',
+      })
+    }
   }
 
   const etiquetaRango = rangos.find((r) => r.clave === rango)?.label ?? ''
@@ -270,8 +290,8 @@ export default function Caja() {
             <Button variant="secondary" onClick={() => setCobrando(null)}>
               Cancelar
             </Button>
-            <Button onClick={confirmar} disabled={!monto || Number(monto) <= 0}>
-              Registrar pago
+            <Button onClick={confirmar} disabled={procesando || !monto || Number(monto) <= 0}>
+              {procesando ? 'Registrando…' : 'Registrar pago'}
             </Button>
           </>
         }

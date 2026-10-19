@@ -122,6 +122,11 @@ The current React application stores veterinary, clinical, inventory, and sessio
       - Evidence: frontend lint/build; backend inventory and auth tests, lint, build, and full test suite recorded below.
       - Commit identity: the single Conventional Commit created for B06.16; immutable hash is reported in the delivery result.
       - Rollback boundary: revert only the B06.16 commit, including medication API types/mapping/hydration/mutations, medication DTO expiration support, focused evidence, and this checklist entry; preserve B06.1–B06.15 authentication, owner, scheduling, clinical, vaccine, service, and attachment behavior.
+     - [x] B06.17 — Migrate cashier payments to authenticated API persistence.
+       - Acceptance: staff sessions hydrate active payments from `GET /payments`; cashier registration uses `POST /payments` with appointment, amount, method, and optional reference; voiding uses `/payments/:id/void`; local payment state changes only after successful responses; failures preserve the modal/list state and show Spanish errors; staff role guards, owner denial, appointment payment semantics, reporting, and printing remain intact.
+       - Evidence: frontend lint/build passed (two pre-existing React Hook dependency warnings); focused payment/auth/appointment tests passed (3 suites, 10 tests); backend lint/build passed; Prisma validation passed; full backend tests passed (13 suites, 37 tests).
+       - Commit identity: final `HEAD` (`feat(frontend): persist cashier payments through API`); immutable hash is reported in the delivery result.
+       - Rollback boundary: revert only the B06.17 commit, including payment API types/mapping/hydration/mutations, cashier response handling, focused evidence, and this checklist entry; preserve B06.1–B06.16 authentication, owner, scheduling, clinical, vaccine, service, attachment, and inventory behavior.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.

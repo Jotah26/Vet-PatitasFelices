@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { crearSemilla } from './semilla'
-import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
+import { hoy, d, diffDias, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendMedication, BackendOwner, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendMedication, BackendOwner, BackendPayment, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -79,6 +79,24 @@ const mapService = (service: BackendService): Servicio => ({
   duracion: service.durationMinutes,
   activo: service.active,
 })
+
+const paymentMethods: Record<BackendPayment['method'], import('./types').MetodoPago> = {
+  YAPE: 'Yape', CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia',
+}
+const paymentMethodsBackend = Object.fromEntries(
+  Object.entries(paymentMethods).map(([backend, frontend]) => [frontend, backend]),
+) as Record<import('./types').MetodoPago, BackendPayment['method']>
+const mapPayment = (payment: BackendPayment): Pago => {
+  const paidAt = new Date(payment.paidAt)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return {
+    id: payment.id,
+    ...(payment.appointmentId != null ? { citaId: payment.appointmentId } : {}),
+    fecha: `${paidAt.getFullYear()}-${pad(paidAt.getMonth() + 1)}-${pad(paidAt.getDate())}`,
+    hora: `${pad(paidAt.getHours())}:${pad(paidAt.getMinutes())}`,
+    metodo: paymentMethods[payment.method], monto: Number(payment.amount), referencia: payment.reference,
+  }
+}
 
 const dateOnly = (value: string | null) => value ? value.slice(0, 10) : ''
 const mapVaccine = (vaccine: BackendVaccine): Vacuna => ({
@@ -311,6 +329,8 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, recetas: accion.datos }
     case 'API_MEDICAMENTOS':
       return { ...estado, medicamentos: accion.datos }
+    case 'API_PAGOS':
+      return { ...estado, pagos: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     case 'API_SOLICITUD_ACTUALIZAR':
@@ -488,28 +508,6 @@ function reducer(estado: Estado, accion: Accion): Estado {
         ),
       }
 
-    /* ---------- Caja ---------- */
-      case 'PAGO_CREAR': {
-        const nuevo: Pago = {
-          id: siguienteId(estado.pagos),
-          fecha: hoy,
-          hora: horaActual(),
-          referencia: null,
-          ...accion.datos,
-        }
-      const citas =
-        accion.datos.citaId != null
-          ? estado.citas.map((c) => (c.id === accion.datos.citaId ? { ...c, pagada: true } : c))
-          : estado.citas
-      return { ...estado, pagos: [...estado.pagos, nuevo], citas }
-    }
-    case 'PAGO_ANULAR':
-      return {
-        ...estado,
-        pagos: estado.pagos.filter((p) => p.id !== accion.datos.id),
-        citas: estado.citas.map((c) => (c.id === accion.datos.citaId ? { ...c, pagada: false } : c)),
-      }
-
     /* ---------- Recordatorios ---------- */
     case 'RECORDATORIO_ALTERNAR': {
       const enviados = { ...estado.recordatoriosEnviados }
@@ -654,6 +652,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let activo = true
     const ownerPortal = user.rol === 'propietario'
     dispatch({ tipo: 'API_MEDICAMENTOS', datos: [] })
+    dispatch({ tipo: 'API_PAGOS', datos: [] })
     dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     dispatch({ tipo: 'API_CITAS', datos: [] })
     if (ownerPortal) dispatch({ tipo: 'API_RECETAS', datos: [] })
@@ -668,8 +667,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ownerPortal ? Promise.resolve([] as BackendConsultation[]) : apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
       apiRequest<BackendPrescription[]>(ownerPortal ? '/prescriptions/mine' : '/prescriptions', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendMedication[]) : apiRequest<BackendMedication[]>('/medications', {}, accessToken()),
+      ownerPortal ? Promise.resolve([] as BackendPayment[]) : apiRequest<BackendPayment[]>('/payments', {}, accessToken()),
     ])
-      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions, medications]) => {
+      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions, medications, payments]) => {
         if (!activo) return
         const attachmentLists = await Promise.all(
           consultations.map((consultation) => apiRequest<BackendAttachment[]>(`/consultations/${consultation.id}/attachments`, {}, accessToken())),
@@ -688,6 +688,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map((consultation, index) => mapConsultation(consultation, attachmentLists[index])) })
         dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
         dispatch({ tipo: 'API_MEDICAMENTOS', datos: medications.map(mapMedication) })
+        dispatch({ tipo: 'API_PAGOS', datos: payments.map(mapPayment) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -714,6 +715,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           solicitudes: [],
           recetas: user?.rol === 'propietario' ? [] : estado.recetas,
           medicamentos: [],
+          pagos: [],
         }),
       )
     } catch {
@@ -1087,8 +1089,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
       marcarReceta: (id, estadoReceta) => dispatch({ tipo: 'RECETA_ESTADO', datos: { id, estado: estadoReceta } }),
       eliminarReceta: (id) => dispatch({ tipo: 'RECETA_ELIMINAR', datos: { id } }),
 
-      registrarPago: (payload) => dispatch({ tipo: 'PAGO_CREAR', datos: payload }),
-      anularPago: (id, citaId) => dispatch({ tipo: 'PAGO_ANULAR', datos: { id, citaId } }),
+      registrarPago: async (payload) => {
+        const payment = await apiRequest<BackendPayment>('/payments', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...(payload.citaId != null ? { appointmentId: payload.citaId } : {}),
+            amount: payload.monto,
+            method: paymentMethodsBackend[payload.metodo],
+            ...(payload.referencia ? { reference: payload.referencia } : {}),
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'API_PAGOS', datos: [...estado.pagos, mapPayment(payment)] })
+      },
+      anularPago: async (id, citaId) => {
+        await apiRequest<BackendPayment>(`/payments/${id}/void`, { method: 'POST' }, accessToken())
+        void citaId
+        dispatch({ tipo: 'API_PAGOS', datos: estado.pagos.filter((payment) => payment.id !== id) })
+      },
 
       alternarRecordatorio: (clave) => dispatch({ tipo: 'RECORDATORIO_ALTERNAR', datos: { clave } }),
     recordatorios: construirRecordatorios(estado),
