@@ -267,6 +267,12 @@ The current React application stores veterinary, clinical, inventory, and sessio
 - B06.11 focused evidence: `npm test -- --runInBand test/auth.e2e-spec.ts test/reminders.e2e-spec.ts test/clinical.e2e-spec.ts` — passed (3 suites, 8 tests), including owner isolation and staff CRUD authorization. `npm run lint` and `npm run build` in `backend/` — passed. `npm run lint` in `frontend/` — passed with 2 pre-existing hook-dependency warnings (`Citas.tsx`, `Vacunas.tsx`) and no errors. `npm run build` in `frontend/` — passed. The full backend suite initially exposed an outdated owner `/services` expectation; it was corrected to assert the intentional read-only owner access, while owner writes remain forbidden.
 - B06.11 commit: `b8a856b` (`feat(vaccines): persist staff records and owner visibility`).
 
+- [x] B06.21 — Remove business-data persistence from the frontend localStorage bridge.
+  - Acceptance: authenticated API-backed collections are never written to `pf_db_v3`; only the local notification sent marker remains browser-local UI state.
+  - Evidence: `frontend/src/data/store.tsx` now loads only `recordatoriosEnviados` from localStorage and writes no owners, pets, appointments, requests, clinical records, vaccines, prescriptions, inventory, payments, or users.
+  - Verification: frontend lint/build passed with the existing 2 hook warnings; full backend suite remained green at 14 suites and 40 tests.
+  - Rollback boundary: revert only the B06.21 store persistence change and this evidence; do not revert any API-backed workflow migration.
+
 - B05.1 adds clinical persistence (`Consultation`, `Vaccine`, `Prescription`, `PrescriptionItem`) with restrictive foreign keys, plus staff-only endpoints: `POST /clinical/attentions` registers consultation, vaccines, and prescription atomically in one transaction; `GET /consultations`, `GET /vaccines`, and `GET /prescriptions` support optional `petId` filtering; standalone `POST /vaccines` and `POST /prescriptions` validate pet, veterinarian, and consultation references.
 - B05.1 migration `20261006000000_add_clinical_care` is forward-only and was deployed to local PostgreSQL; attachments, stock movements, payments, and reminders stay out of scope for B05.2–B05.5.
 - TDD evidence for B05.1:

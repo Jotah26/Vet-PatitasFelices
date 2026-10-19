@@ -298,42 +298,16 @@ function siguienteId(coleccion: { id: number }[]) {
   return coleccion.reduce((max, item) => Math.max(max, item.id ?? 0), 0) + 1
 }
 
-const colecciones = [
-  'usuarios',
-  'cuentasDemo',
-  'tarifario',
-  'propietarios',
-  'mascotas',
-  'citas',
-  'solicitudes',
-  'consultas',
-  'vacunas',
-  'recetas',
-  'medicamentos',
-  'pagos',
-  'archivos',
-] as const
-
 function cargar(): Estado {
   try {
     const crudo = localStorage.getItem(clave_bd)
     if (!crudo) return crearSemilla()
     const guardado: unknown = JSON.parse(crudo)
     if (!guardado || typeof guardado !== 'object' || Array.isArray(guardado)) return crearSemilla()
-    const base = crearSemilla()
-    const migrado = { ...base, ...(guardado as Partial<Estado>) }
-    for (const clave of colecciones) {
-      if (!Array.isArray(migrado[clave])) {
-        Object.assign(migrado, { [clave]: base[clave] })
-      }
-    }
-    const enviados = migrado.recordatoriosEnviados
-    if (!enviados || typeof enviados !== 'object' || Array.isArray(enviados)) {
-      migrado.recordatoriosEnviados = {}
-    }
-    return { ...migrado, usuarios: [], tarifario: [], vacunas: [] }
+    const enviados = (guardado as Partial<Estado>).recordatoriosEnviados
+    return { ...crearSemilla(), recordatoriosEnviados: enviados && typeof enviados === 'object' && !Array.isArray(enviados) ? enviados : {} }
   } catch {
-    return { ...crearSemilla(), usuarios: [], tarifario: [], vacunas: [] }
+    return crearSemilla()
   }
 }
 
@@ -764,23 +738,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      localStorage.setItem(
-        clave_bd,
-        JSON.stringify({
-          ...estado,
-          usuarios: [],
-          propietarios: [],
-          mascotas: [],
-          citas: user?.rol === 'propietario' ? [] : estado.citas,
-          vacunas: [],
-          solicitudes: [],
-           recetas: user?.rol === 'propietario' ? [] : estado.recetas,
-           consultas: [],
-           archivos: [],
-          medicamentos: [],
-          pagos: [],
-        }),
-      )
+      localStorage.setItem(clave_bd, JSON.stringify({ recordatoriosEnviados: estado.recordatoriosEnviados }))
     } catch {
       toast({
         tipo: 'error',
