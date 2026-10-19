@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { json } from 'express';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -43,7 +44,8 @@ describe('Private consultation attachments', () => {
       .overrideProvider(PrismaService)
       .useValue(prisma)
       .compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ bodyParser: false });
+    app.use(json({ limit: '2mb' }));
     app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
     await app.init();
     const jwt = app.get(JwtService);
@@ -87,5 +89,9 @@ describe('Private consultation attachments', () => {
     await asStaff(request(app.getHttpServer()).get('/consultations/99/attachments')).expect(404);
     await asStaff(request(app.getHttpServer()).post('/consultations/1/attachments')).send({ ...payload(), dataUrl: 'nota-data-url' }).expect(400);
     await asStaff(request(app.getHttpServer()).post('/consultations/1/attachments')).send({ ...payload(), mimeType: 'no-es-mime' }).expect(400);
+    await asStaff(request(app.getHttpServer()).post('/consultations/1/attachments')).send({ ...payload(), mimeType: 'image/gif' }).expect(400);
+    await asStaff(request(app.getHttpServer()).post('/consultations/1/attachments'))
+      .send({ ...payload(), dataUrl: `data:image/png;base64,${'A'.repeat(1_400_000)}` })
+      .expect(400);
   });
 });

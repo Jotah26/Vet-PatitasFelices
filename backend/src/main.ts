@@ -1,12 +1,15 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { json } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
+    bodyParser: false,
   });
+  app.use(json({ limit: '2mb' }));
   const config = app.get(ConfigService);
   const origins = config
     .getOrThrow<string>('CORS_ORIGINS')

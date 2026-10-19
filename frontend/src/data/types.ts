@@ -142,6 +142,11 @@ export interface Consulta {
   archivoIds?: number[]
 }
 
+export interface ResultadoAtencion {
+  consultaId: number
+  adjuntosPendientes: Adjunto[]
+}
+
 /** `nombre` es texto libre: existen variantes como "Triple felina (1.ª dosis)". */
 export interface Vacuna {
   id: number
@@ -405,7 +410,8 @@ export interface DatosApi extends Estado {
   recetaImprimible: (receta: Receta) => RecetaImprimible
 
   /* Mutaciones. */
-  registrarAtencion: (payload: PayloadAtencion) => Promise<void>
+  registrarAtencion: (payload: PayloadAtencion) => Promise<ResultadoAtencion>
+  reintentarAdjuntos: (consultaId: number, adjuntos: Adjunto[]) => Promise<Adjunto[]>
   crearCita: (payload: NuevaCita) => Promise<void>
   actualizarCita: (id: number, cambios: Partial<Cita>) => Promise<void>
   cambiarEstadoCita: (id: number, estado: EstadoCita) => Promise<void>

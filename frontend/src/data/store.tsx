@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendConsultation, BackendOwner, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendOwner, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -23,6 +23,7 @@ import type {
   EstadoVacuna,
   Mascota,
   Propietario,
+  Adjunto,
 } from '../data/types'
 
 /* Se sube la versión cuando cambia la semilla: al abrir la app se descartan los
@@ -98,7 +99,7 @@ const attentionTypes: Record<BackendConsultation['type'], Consulta['tipo']> = {
   DEWORMING: 'Desparasitación',
 }
 
-const mapConsultation = (consultation: BackendConsultation): Consulta => ({
+const mapConsultation = (consultation: BackendConsultation, attachments: BackendAttachment[] = []): Consulta => ({
   id: consultation.id,
   mascotaId: consultation.petId,
   fecha: consultation.occurredAt.slice(0, 10),
@@ -108,8 +109,24 @@ const mapConsultation = (consultation: BackendConsultation): Consulta => ({
   tratamiento: consultation.treatment,
   recomendaciones: consultation.recommendations,
   estado: consultation.status === 'IN_FOLLOWUP' ? 'En seguimiento' : 'Completada',
-  archivos: [],
+  archivos: attachments.map((attachment) => attachment.fileName),
+  ...(attachments.length ? { archivoIds: attachments.map((attachment) => attachment.id) } : {}),
 })
+
+const uploadAttachments = async (consultaId: number, adjuntos: Adjunto[]): Promise<Adjunto[]> => {
+  for (let index = 0; index < adjuntos.length; index += 1) {
+    try {
+      const adjunto = adjuntos[index]
+      await apiRequest<BackendAttachment>(`/consultations/${consultaId}/attachments`, {
+        method: 'POST',
+        body: JSON.stringify({ fileName: adjunto.nombre, mimeType: adjunto.tipo, dataUrl: adjunto.dataUrl }),
+      }, accessToken())
+    } catch {
+      return adjuntos.slice(index)
+    }
+  }
+  return []
+}
 
 const mapPrescription = (prescription: BackendPrescription): Receta => ({
   id: prescription.id,
@@ -620,8 +637,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ownerPortal ? Promise.resolve([] as BackendConsultation[]) : apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
       apiRequest<BackendPrescription[]>(ownerPortal ? '/prescriptions/mine' : '/prescriptions', {}, accessToken()),
     ])
-      .then(([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions]) => {
+      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions]) => {
         if (!activo) return
+        const attachmentLists = await Promise.all(
+          consultations.map((consultation) => apiRequest<BackendAttachment[]>(`/consultations/${consultation.id}/attachments`, {}, accessToken())),
+        )
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
           datos: {
@@ -633,7 +653,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
         dispatch({ tipo: 'API_SERVICIOS', datos: services.map(mapService) })
         dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
-        dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map(mapConsultation) })
+        dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map((consultation, index) => mapConsultation(consultation, attachmentLists[index])) })
         dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
       })
       .catch((error) => toast({
@@ -746,7 +766,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           'Urgencia': 'EMERGENCY',
           'Desparasitación': 'DEWORMING',
         }
-        await apiRequest('/clinical/attentions', {
+        const consultation = await apiRequest<BackendConsultation>('/clinical/attentions', {
           method: 'POST',
           body: JSON.stringify({
             petId: payload.mascotaId,
@@ -766,14 +786,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
             } : undefined,
           }),
         }, accessToken())
+        const adjuntosPendientes = await uploadAttachments(consultation.id, payload.archivos ?? [])
         const [consultations, vaccines, prescriptions] = await Promise.all([
           apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
           apiRequest<BackendVaccine[]>('/vaccines', {}, accessToken()),
           apiRequest<BackendPrescription[]>('/prescriptions', {}, accessToken()),
         ])
-        dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map(mapConsultation) })
+        const attachmentLists = await Promise.all(
+          consultations.map((item) => apiRequest<BackendAttachment[]>(`/consultations/${item.id}/attachments`, {}, accessToken())),
+        )
+        dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map((item, index) => mapConsultation(item, attachmentLists[index])) })
         dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
         dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
+        return { consultaId: consultation.id, adjuntosPendientes }
+      },
+      reintentarAdjuntos: async (consultaId, adjuntos) => {
+        const pendientes = await uploadAttachments(consultaId, adjuntos)
+        if (pendientes.length === 0) {
+          const consultations = await apiRequest<BackendConsultation[]>('/consultations', {}, accessToken())
+          const attachmentLists = await Promise.all(
+            consultations.map((item) => apiRequest<BackendAttachment[]>(`/consultations/${item.id}/attachments`, {}, accessToken())),
+          )
+          dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map((item, index) => mapConsultation(item, attachmentLists[index])) })
+        }
+        return pendientes
       },
 
       crearCita: async (payload) => {

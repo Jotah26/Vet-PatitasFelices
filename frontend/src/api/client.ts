@@ -83,6 +83,16 @@ export type BackendConsultation = {
   status: 'COMPLETED' | 'IN_FOLLOWUP'
 }
 
+export type BackendAttachment = {
+  id: number
+  consultationId: number
+  fileName: string
+  mimeType: string
+  uploadedById: number | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type BackendPrescription = {
   id: number
   petId: number

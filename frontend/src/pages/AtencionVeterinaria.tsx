@@ -50,6 +50,8 @@ export default function AtencionVeterinaria() {
   const [archivos, setArchivos] = useState<Adjunto[]>([])
   const [errores, setErrores] = useState<ErroresFormulario>({})
   const [guardado, setGuardado] = useState(false)
+  const [consultaPendiente, setConsultaPendiente] = useState<{ id: number; adjuntos: Adjunto[] } | null>(null)
+  const [reintentandoAdjuntos, setReintentandoAdjuntos] = useState(false)
 
   const [pacientePrevio, setPacientePrevio] = useState(mascotaId)
   if (pacientePrevio !== mascotaId) {
@@ -99,21 +101,26 @@ export default function AtencionVeterinaria() {
     }
 
     try {
-      await datos.registrarAtencion(payload)
+      const resultado = await datos.registrarAtencion(payload)
       setGuardado(true)
+      setConsultaPendiente(resultado.adjuntosPendientes.length ? { id: resultado.consultaId, adjuntos: resultado.adjuntosPendientes } : null)
       toast({
-        titulo: 'Atención registrada',
-        detalle: 'Se actualizó el historial y las vacunas desde el backend.',
-        tipo: 'exito',
+        titulo: resultado.adjuntosPendientes.length ? 'Atención registrada con adjuntos pendientes' : 'Atención registrada',
+        detalle: resultado.adjuntosPendientes.length
+          ? 'La consulta, vacunas y receta se guardaron, pero algunos archivos aún no se pudieron subir.'
+          : 'Se actualizó el historial y las vacunas desde el backend.',
+        tipo: resultado.adjuntosPendientes.length ? 'aviso' : 'exito',
       })
 
-      setDiagnostico('')
-      setTratamiento('')
-      setRecomendaciones('')
-      setVacunas([])
-      setReceta(null)
-      setArchivos([])
-      setErrores({})
+      if (resultado.adjuntosPendientes.length === 0) {
+        setDiagnostico('')
+        setTratamiento('')
+        setRecomendaciones('')
+        setVacunas([])
+        setReceta(null)
+        setArchivos([])
+        setErrores({})
+      }
     } catch (error) {
       toast({
         tipo: 'error',
@@ -134,6 +141,25 @@ export default function AtencionVeterinaria() {
     setReceta(null)
     setArchivos([])
     setErrores({})
+    setConsultaPendiente(null)
+  }
+
+  async function reintentarAdjuntos() {
+    if (!consultaPendiente) return
+    setReintentandoAdjuntos(true)
+    try {
+      const pendientes = await datos.reintentarAdjuntos(consultaPendiente.id, consultaPendiente.adjuntos)
+      if (pendientes.length === 0) {
+        setConsultaPendiente(null)
+        setArchivos([])
+        toast({ tipo: 'exito', titulo: 'Adjuntos guardados', detalle: 'Todos los archivos quedaron vinculados a la consulta.' })
+      } else {
+        setConsultaPendiente({ ...consultaPendiente, adjuntos: pendientes })
+        toast({ tipo: 'aviso', titulo: 'Aún hay adjuntos pendientes', detalle: 'No se pudo subir todo. Puede reintentar nuevamente.' })
+      }
+    } finally {
+      setReintentandoAdjuntos(false)
+    }
   }
 
   return (
@@ -155,11 +181,26 @@ export default function AtencionVeterinaria() {
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
             <CheckIcon className="h-7 w-7" />
           </span>
-          <h2 className="mt-4 text-lg font-bold text-slate-900">Atención registrada correctamente</h2>
+          <h2 className="mt-4 text-lg font-bold text-slate-900">
+            {consultaPendiente ? 'Atención registrada con adjuntos pendientes' : 'Atención registrada correctamente'}
+          </h2>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-600">
-            Se guardó la consulta de <span className="font-semibold">{paciente?.nombre}</span>, se actualizó su
-            historial, las vacunas aplicadas y el portal del propietario ya muestra la información.
+            {consultaPendiente
+              ? <>La consulta de <span className="font-semibold">{paciente?.nombre}</span>, sus vacunas y receta se guardaron. Faltan {consultaPendiente.adjuntos.length} archivo(s); la atención no está completamente persistida.</>
+              : <>Se guardó la consulta de <span className="font-semibold">{paciente?.nombre}</span>, se actualizó su historial, las vacunas aplicadas y el portal del propietario ya muestra la información.</>}
           </p>
+          {consultaPendiente && (
+            <div className="mx-auto mt-4 max-w-md text-left">
+              <Aviso tono="aviso" titulo="Archivos pendientes">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>Conserve esta pantalla para volver a intentar la carga.</span>
+                  <Button size="sm" variant="secondary" onClick={() => void reintentarAdjuntos()} disabled={reintentandoAdjuntos}>
+                    {reintentandoAdjuntos ? 'Reintentando…' : 'Reintentar carga'}
+                  </Button>
+                </div>
+              </Aviso>
+            </div>
+          )}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {paciente && (
               <Button onClick={() => navegar(`/mascotas/${paciente.id}`)}>Ver ficha del paciente</Button>

@@ -1,4 +1,4 @@
-import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class UploadAttachmentDto {
   @IsString()
@@ -7,6 +7,7 @@ export class UploadAttachmentDto {
   fileName!: string;
 
   @IsString()
+  @IsIn(['image/png', 'image/jpeg', 'image/webp', 'application/pdf'])
   @Matches(/^[\w.+-]+\/[\w.+-]+$/)
   mimeType!: string;
 

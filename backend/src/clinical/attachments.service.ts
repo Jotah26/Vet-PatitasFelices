@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadAttachmentDto } from './dto/upload-attachment.dto';
 
@@ -18,12 +18,20 @@ export class AttachmentsService {
 
   async upload(consultationId: number, uploadedById: number, data: UploadAttachmentDto) {
     await this.requireConsultation(consultationId);
+    this.validateDataUrlSize(data.dataUrl);
     try {
       return await this.prisma.clinicalAttachment.create({
         data: { ...data, consultationId, uploadedById },
       });
     } catch (error: unknown) {
       throw this.translateError(error);
+    }
+  }
+
+  private validateDataUrlSize(dataUrl: string): void {
+    const match = /^data:[^;,]+;base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+    if (!match || Buffer.from(match[1], 'base64').byteLength > 1024 * 1024) {
+      throw new BadRequestException('Attachment payload must be a valid base64 data URL of at most 1 MB.');
     }
   }
 
