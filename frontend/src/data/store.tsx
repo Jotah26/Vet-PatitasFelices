@@ -4,6 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
+import type { BackendOwner, BackendPet } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -20,11 +21,74 @@ import type {
   Vacuna,
   EstadoVacuna,
   Mascota,
+  Propietario,
 } from '../data/types'
 
 /* Se sube la versión cuando cambia la semilla: al abrir la app se descartan los
  * datos guardados con la versión anterior y se regeneran con las fechas al día. */
 const clave_bd = 'pf_db_v3'
+
+const especiesBackend: Record<Mascota['especie'], string> = {
+  Perro: 'DOG',
+  Gato: 'CAT',
+  Ave: 'BIRD',
+  Roedor: 'RODENT',
+  Reptil: 'REPTILE',
+  Otro: 'OTHER',
+}
+const especiesFrontend: Record<string, Mascota['especie']> = Object.fromEntries(
+  Object.entries(especiesBackend).map(([label, value]) => [value, label]),
+) as Record<string, Mascota['especie']>
+const sexosBackend: Record<Mascota['sexo'], string> = { Macho: 'MALE', Hembra: 'FEMALE' }
+const sexosFrontend: Record<string, Mascota['sexo']> = Object.fromEntries(
+  Object.entries(sexosBackend).map(([label, value]) => [value, label]),
+) as Record<string, Mascota['sexo']>
+
+const mapOwner = (owner: BackendOwner): Propietario => ({
+  id: owner.id,
+  nombre: owner.name,
+  dni: owner.documentNumber,
+  telefono: owner.phone,
+  email: owner.email,
+  direccion: owner.address,
+})
+
+const mapPet = (pet: BackendPet): Mascota => ({
+  id: pet.id,
+  nombre: pet.name,
+  especie: especiesFrontend[pet.species] ?? (pet.species as Mascota['especie']),
+  raza: pet.breed,
+  sexo: sexosFrontend[pet.sex] ?? (pet.sex as Mascota['sexo']),
+  edad: pet.age,
+  color: pet.color,
+  peso: pet.weight,
+  esterilizado: pet.isNeutered,
+  propietarioId: pet.ownerId,
+  antecedentes: pet.medicalBackground,
+  ...(pet.photoDataUrl ? { foto: pet.photoDataUrl } : {}),
+})
+
+const ownerRequest = (owner: Partial<Propietario>) => ({
+  ...(owner.nombre !== undefined ? { name: owner.nombre } : {}),
+  ...(owner.dni !== undefined ? { documentNumber: owner.dni } : {}),
+  ...(owner.telefono !== undefined ? { phone: owner.telefono } : {}),
+  ...(owner.email !== undefined ? { email: owner.email } : {}),
+  ...(owner.direccion !== undefined ? { address: owner.direccion } : {}),
+})
+
+const petRequest = (pet: Partial<Mascota>) => ({
+  ...(pet.nombre !== undefined ? { name: pet.nombre } : {}),
+  ...(pet.especie !== undefined ? { species: especiesBackend[pet.especie] } : {}),
+  ...(pet.raza !== undefined ? { breed: pet.raza } : {}),
+  ...(pet.sexo !== undefined ? { sex: sexosBackend[pet.sexo] } : {}),
+  ...(pet.edad !== undefined ? { age: pet.edad } : {}),
+  ...(pet.color !== undefined ? { color: pet.color } : {}),
+  ...(pet.peso !== undefined ? { weight: pet.peso } : {}),
+  ...(pet.esterilizado !== undefined ? { isNeutered: pet.esterilizado } : {}),
+  ...(pet.antecedentes !== undefined ? { medicalBackground: pet.antecedentes } : {}),
+  ...(pet.foto !== undefined ? { photoDataUrl: pet.foto } : {}),
+  ...(pet.propietarioId !== undefined ? { ownerId: pet.propietarioId } : {}),
+})
 
 /** Días hasta la próxima dosis. Solo se detallan los nombres que no siguen
  *  el año por defecto. */
@@ -95,7 +159,7 @@ function reducer(estado: Estado, accion: Accion): Estado {
     case 'PROPIETARIO_CREAR':
       return {
         ...estado,
-        propietarios: [...estado.propietarios, { id: siguienteId(estado.propietarios), ...accion.datos }],
+        propietarios: [...estado.propietarios, { id: 'id' in accion.datos ? accion.datos.id : siguienteId(estado.propietarios), ...accion.datos }],
       }
     case 'PROPIETARIO_ACTUALIZAR':
       return {
@@ -113,7 +177,7 @@ function reducer(estado: Estado, accion: Accion): Estado {
 
     /* ---------- Mascotas ---------- */
     case 'MASCOTA_CREAR':
-      return { ...estado, mascotas: [...estado.mascotas, { id: siguienteId(estado.mascotas), ...accion.datos }] }
+      return { ...estado, mascotas: [...estado.mascotas, { id: 'id' in accion.datos ? accion.datos.id : siguienteId(estado.mascotas), ...accion.datos }] }
     case 'MASCOTA_ACTUALIZAR':
       return {
         ...estado,
@@ -418,36 +482,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     let activo = true
     Promise.all([
-      apiRequest<Array<{ id: number; name: string; documentNumber: string; phone: string; email: string; address: string }>>('/owners', {}, accessToken()),
-      apiRequest<Array<{ id: number; name: string; species: string; breed: string; sex: string; age: string; color: string; weight: string; isNeutered: boolean; ownerId: number; medicalBackground: string; photoDataUrl?: string }>>('/pets', {}, accessToken()),
+      apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
+      apiRequest<BackendPet[]>('/pets', {}, accessToken()),
     ])
       .then(([owners, pets]) => {
         if (!activo) return
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
           datos: {
-            propietarios: owners.map((owner) => ({
-              id: owner.id,
-              nombre: owner.name,
-              dni: owner.documentNumber,
-              telefono: owner.phone,
-              email: owner.email,
-              direccion: owner.address,
-            })),
-            mascotas: pets.map((pet) => ({
-              id: pet.id,
-              nombre: pet.name,
-              especie: pet.species as Mascota['especie'],
-              raza: pet.breed,
-              sexo: pet.sex as Mascota['sexo'],
-              edad: pet.age,
-              color: pet.color,
-              peso: pet.weight,
-              esterilizado: pet.isNeutered,
-              propietarioId: pet.ownerId,
-              antecedentes: pet.medicalBackground,
-              ...(pet.photoDataUrl ? { foto: pet.photoDataUrl } : {}),
-            })),
+            propietarios: owners.map(mapOwner),
+            mascotas: pets.map(mapPet),
           },
         })
       })
@@ -548,13 +592,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       aceptarSolicitud: (id, vetId) => dispatch({ tipo: 'SOLICITUD_ACEPTAR', datos: { id, vetId } }),
       rechazarSolicitud: (id, motivo) => dispatch({ tipo: 'SOLICITUD_RECHAZAR', datos: { id, motivo } }),
 
-      crearMascota: (payload) => dispatch({ tipo: 'MASCOTA_CREAR', datos: payload }),
-      actualizarMascota: (id, cambios) => dispatch({ tipo: 'MASCOTA_ACTUALIZAR', datos: { id, cambios } }),
-      eliminarMascota: (id) => dispatch({ tipo: 'MASCOTA_ELIMINAR', datos: { id } }),
+      crearMascota: async (payload) => {
+        const mascota = await apiRequest<BackendPet>('/pets', { method: 'POST', body: JSON.stringify(petRequest(payload)) }, accessToken())
+        dispatch({ tipo: 'MASCOTA_CREAR', datos: mapPet(mascota) })
+      },
+      actualizarMascota: async (id, cambios) => {
+        const mascota = await apiRequest<BackendPet>(`/pets/${id}`, { method: 'PATCH', body: JSON.stringify(petRequest(cambios)) }, accessToken())
+        dispatch({ tipo: 'MASCOTA_ACTUALIZAR', datos: { id, cambios: mapPet(mascota) } })
+      },
+      eliminarMascota: async (id) => {
+        await apiRequest<null>(`/pets/${id}`, { method: 'DELETE' }, accessToken())
+        dispatch({ tipo: 'MASCOTA_ELIMINAR', datos: { id } })
+      },
 
-      crearPropietario: (payload) => dispatch({ tipo: 'PROPIETARIO_CREAR', datos: payload }),
-      actualizarPropietario: (id, cambios) => dispatch({ tipo: 'PROPIETARIO_ACTUALIZAR', datos: { id, cambios } }),
-      eliminarPropietario: (id) => dispatch({ tipo: 'PROPIETARIO_ELIMINAR', datos: { id } }),
+      crearPropietario: async (payload) => {
+        const propietario = await apiRequest<BackendOwner>('/owners', { method: 'POST', body: JSON.stringify(ownerRequest(payload)) }, accessToken())
+        dispatch({ tipo: 'PROPIETARIO_CREAR', datos: mapOwner(propietario) })
+      },
+      actualizarPropietario: async (id, cambios) => {
+        const propietario = await apiRequest<BackendOwner>(`/owners/${id}`, { method: 'PATCH', body: JSON.stringify(ownerRequest(cambios)) }, accessToken())
+        dispatch({ tipo: 'PROPIETARIO_ACTUALIZAR', datos: { id, cambios: mapOwner(propietario) } })
+      },
+      eliminarPropietario: async (id) => {
+        await apiRequest<null>(`/owners/${id}`, { method: 'DELETE' }, accessToken())
+        dispatch({ tipo: 'PROPIETARIO_ELIMINAR', datos: { id } })
+      },
 
       crearUsuario: (payload) => dispatch({ tipo: 'USUARIO_CREAR', datos: payload }),
       actualizarUsuario: (id, cambios) => dispatch({ tipo: 'USUARIO_ACTUALIZAR', datos: { id, cambios } }),

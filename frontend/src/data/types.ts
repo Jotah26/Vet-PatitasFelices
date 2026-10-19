@@ -318,10 +318,10 @@ export type Accion =
   | { tipo: 'USUARIO_CREAR'; datos: Omit<Usuario, 'id'> }
   | { tipo: 'USUARIO_ACTUALIZAR'; datos: { id: number; cambios: Partial<Usuario> } }
   | { tipo: 'USUARIO_ELIMINAR'; datos: { id: number } }
-  | { tipo: 'PROPIETARIO_CREAR'; datos: Omit<Propietario, 'id'> }
+  | { tipo: 'PROPIETARIO_CREAR'; datos: Propietario | Omit<Propietario, 'id'> }
   | { tipo: 'PROPIETARIO_ACTUALIZAR'; datos: { id: number; cambios: Partial<Propietario> } }
   | { tipo: 'PROPIETARIO_ELIMINAR'; datos: { id: number } }
-  | { tipo: 'MASCOTA_CREAR'; datos: Omit<Mascota, 'id'> }
+  | { tipo: 'MASCOTA_CREAR'; datos: Mascota | Omit<Mascota, 'id'> }
   | { tipo: 'MASCOTA_ACTUALIZAR'; datos: { id: number; cambios: Partial<Mascota> } }
   | { tipo: 'MASCOTA_ELIMINAR'; datos: { id: number } }
   | { tipo: 'SERVICIO_CREAR'; datos: NuevoServicio }
@@ -399,12 +399,12 @@ export interface DatosApi extends Estado {
   solicitarCita: (payload: NuevaSolicitud) => void
   aceptarSolicitud: (id: number, vetId: number) => void
   rechazarSolicitud: (id: number, motivo: string) => void
-  crearMascota: (payload: Omit<Mascota, 'id'>) => void
-  actualizarMascota: (id: number, cambios: Partial<Mascota>) => void
-  eliminarMascota: (id: number) => void
-  crearPropietario: (payload: Omit<Propietario, 'id'>) => void
-  actualizarPropietario: (id: number, cambios: Partial<Propietario>) => void
-  eliminarPropietario: (id: number) => void
+  crearMascota: (payload: Omit<Mascota, 'id'>) => Promise<void>
+  actualizarMascota: (id: number, cambios: Partial<Mascota>) => Promise<void>
+  eliminarMascota: (id: number) => Promise<void>
+  crearPropietario: (payload: Omit<Propietario, 'id'>) => Promise<void>
+  actualizarPropietario: (id: number, cambios: Partial<Propietario>) => Promise<void>
+  eliminarPropietario: (id: number) => Promise<void>
   crearUsuario: (payload: Omit<Usuario, 'id'>) => void
   actualizarUsuario: (id: number, cambios: Partial<Usuario>) => void
   eliminarUsuario: (id: number) => void

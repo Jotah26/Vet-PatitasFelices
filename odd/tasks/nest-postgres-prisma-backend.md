@@ -316,5 +316,17 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Backend lint/build: `npm run lint` and `npm run build` — passed.
 - B06.3 rollback boundary: remove `POST /auth/register-owner`, its DTO/service method, the frontend registration fields and `register` API method, and this B06.3 evidence. Owner self-registration is independent of staff account provisioning.
 
+- B06.4 migrates owner and pet create/update/delete mutations to the authenticated `/owners` and `/pets` API endpoints. Successful responses are mapped back to the existing frontend entities, including backend Prisma enum keys and server-assigned IDs; failed requests leave local collections unchanged and surface an error toast. The shared CRUD modal now closes and reports success only after the API request resolves. Owner self-registration remains unchanged, and staff-only backend role guards were not broadened to grant owner accounts staff privileges.
+- B06.4 acceptance: authenticated staff mutations persist through the API; local reducer state is updated only from successful API responses; API failures do not claim success; owner and pet collections remain excluded from `pf_db_v3`; owner accounts retain the `OWNER` role and existing portal routing/guards.
+- B06.4 verification:
+  - Frontend `npm run lint` — passed with 2 pre-existing hook dependency warnings in `frontend/src/pages/Citas.tsx` and `frontend/src/pages/Vacunas.tsx`, no errors.
+  - Frontend `npm run build` — passed; TypeScript and Vite production build completed.
+  - Backend `npm run lint` — passed with no output.
+  - Backend `npm run build` — passed with no output.
+  - Backend `npm test -- --runInBand test/auth.e2e-spec.ts` — passed (1 suite, 2 tests).
+  - Runtime harness — N/A; this work unit has no new runtime harness, and the requested authenticated endpoint regression is covered by the frontend build plus existing backend auth e2e test.
+- B06.4 commit identity: `HEAD` is the single Conventional Commit created for this work unit; the exact commit hash is recorded by `git rev-parse HEAD` in the delivery result.
+- B06.4 rollback boundary: revert the single B06.4 commit, or remove only `frontend/src/api/client.ts` response types, the owner/pet API mapping and mutation calls in `frontend/src/data/store.tsx`, the async success/error handling in `frontend/src/hooks/useCRUD.ts`, the portal close-on-success change, the related frontend types, and this evidence. Do not revert B06.1–B06.3 authentication, self-registration, or B06.2 hydration.
+
 ## Next step
-Migrate owner and pet create/update/delete mutations through the authenticated API.
+Migrate the next bounded DataProvider workflow through the authenticated API.

@@ -57,9 +57,10 @@ export function ModalMascotaPortal({ alCerrar }: { alCerrar: () => void }) {
         crud.cerrar()
         alCerrar()
       },
-      guardar: (valores: ValoresFormulario) => {
-        crud.guardar(valores)
-        alCerrar()
+      guardar: async (valores: ValoresFormulario) => {
+        const guardado = await crud.guardar(valores)
+        if (guardado) alCerrar()
+        return guardado
       },
     }),
     [crud, alCerrar],

@@ -27,6 +27,30 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, tok
 
 export type LoginResponse = { accessToken: string; user: BackendUser }
 export type SessionResponse = BackendUser
+export type BackendOwner = {
+  id: number
+  name: string
+  documentNumber: string
+  phone: string
+  email: string
+  address: string
+}
+
+export type BackendPet = {
+  id: number
+  name: string
+  species: string
+  breed: string
+  sex: string
+  age: string
+  color: string
+  weight: string
+  isNeutered: boolean
+  ownerId: number
+  medicalBackground: string
+  photoDataUrl?: string
+}
+
 export type RegisterOwnerRequest = {
   name: string
   email: string
