@@ -8,8 +8,10 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { ClinicalModule } from './clinical/clinical.module';
 import { MedicationsModule } from './medications/medications.module';
 import { OwnersModule } from './owners/owners.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PetsModule } from './pets/pets.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RemindersModule } from './reminders/reminders.module';
 import { ServicesModule } from './services/services.module';
 
 @Module({
@@ -27,6 +29,8 @@ import { ServicesModule } from './services/services.module';
     OwnersModule,
     PetsModule,
     MedicationsModule,
+    PaymentsModule,
+    RemindersModule,
     ServicesModule,
   ],
   controllers: [HealthController],
