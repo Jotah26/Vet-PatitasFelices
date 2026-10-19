@@ -97,7 +97,7 @@ export default function Login() {
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
             <h2 className="text-xl font-bold tracking-tight text-slate-900">{registro ? 'Crear cuenta de propietario' : 'Iniciar sesión'}</h2>
-            <p className="mt-1 text-sm text-slate-500">{registro ? 'Registrate para acceder al portal de propietarios.' : 'Use su correo institucional para entrar.'}</p>
+            <p className="mt-1 text-sm text-slate-500">{registro ? 'Registrate para acceder al portal de propietarios.' : 'Use su correo y contraseña para ingresar.'}</p>
 
             <form onSubmit={enviar} className="mt-4 space-y-4">
               {registro && (
@@ -112,7 +112,7 @@ export default function Login() {
                 label="Correo electrónico"
                 type="email"
                 autoComplete="email"
-                placeholder="nombre@patitasfelices.com"
+                placeholder="nombre@ejemplo.com"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)

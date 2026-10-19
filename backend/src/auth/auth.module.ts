@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { PasswordService } from './password.service';
 import { RolesGuard } from './roles.guard';
+import { AuthThrottleService } from './auth-throttle.service';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { RolesGuard } from './roles.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, AuthThrottleService, PasswordService, JwtAuthGuard, RolesGuard],
   exports: [JwtModule, JwtAuthGuard, RolesGuard, PasswordService],
 })
 export class AuthModule {}

@@ -359,6 +359,18 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - All backend tests: `npm test -- --runInBand` — passed (12 suites, 32 tests).
   - Backend lint: `npm run lint` — passed with no output.
   - Backend build: `npm run build` — passed with no output.
+
+## Security hardening work unit
+
+- [x] Shared-login boundary cleanup and abuse throttling.
+  - Acceptance: the login remains one role-neutral form with no role selector; owner registration remains a separate action below it; backend role-driven routing and authorization remain unchanged; login failures remain the generic `Invalid credentials.` response; inactive users cannot authenticate; current-session validation continues to reject inactive users.
+  - Acceptance: login and public owner registration use a dependency-free, bounded in-memory throttle keyed by normalized email and request client address. Five failures within the 15-minute window trigger HTTP `429`, with a one-minute `Retry-After` header; successful login or registration clears that key. Distinct registration identities do not share a throttle key. Distributed deployments must replace this process-local store with a shared store.
+  - Evidence: `backend/src/auth/auth-throttle.service.ts` implements the bounded 10,000-entry map, expiry, failure threshold, retry window, and reset behavior; `backend/src/auth/auth.controller.ts` applies it to both public endpoints and sets `Retry-After`; `frontend/src/pages/Login.tsx` uses neutral account wording and keeps owner registration separate; `backend/test/auth.e2e-spec.ts` covers generic missing/inactive failures, login throttling, retry header, reset-on-success, and registration throttling with distinct-user access.
+  - Verification: focused `npm run test:auth -- --runInBand` — passed (1 suite, 4 tests); backend `npm test -- --runInBand` — passed (14 suites, 42 tests); backend `npm run lint` and `npm run build` — passed; frontend `npm run lint` and `npm run build` — passed.
+  - Runtime harness: N/A; the guarded HTTP boundaries and response headers are covered by the focused Nest e2e suite, and no separate deployed runtime harness is available.
+  - Commit identity: final `HEAD` is the single Conventional Commit created for this work unit; the immutable hash is reported in the delivery result.
+  - Limitations: MFA and password recovery remain intentionally out of scope and require a real provider decision; the in-memory throttle is not suitable as the authoritative limiter across multiple application instances.
+  - Rollback boundary: revert only the security-hardening work-unit commit, including `backend/src/auth/auth-throttle.service.ts`, auth controller/module wiring, focused auth tests, neutral login copy, and this evidence; preserve prior authentication, authorization, registration, and frontend migration behavior.
   - Prisma validation: `npm run prisma:validate` — passed; schema valid.
 - B05.5 rollback boundary: remove `backend/src/reminders/`, its import from `backend/src/app.module.ts`, `backend/test/reminders.e2e-spec.ts`, and this B05.5 evidence. B01–B05.4 persistence and behavior remain independent.
 

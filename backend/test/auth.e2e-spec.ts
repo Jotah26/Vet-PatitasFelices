@@ -49,9 +49,34 @@ describe('Authentication and authorization', () => {
             };
           }
 
+          if (email === 'inactive@example.test') {
+            return {
+              id: 4,
+              email,
+              name: 'Inactive user',
+              passwordHash: administratorHash,
+              status: 'INACTIVE',
+              role: { key: 'RECEPTIONIST' },
+            };
+          }
+
           return null;
         }),
       },
+      $transaction: jest.fn(async (callback: (tx: unknown) => unknown) =>
+        callback({
+          role: { upsert: jest.fn().mockResolvedValue({ id: 10, key: 'OWNER' }) },
+          user: {
+            create: jest.fn().mockImplementation(({ data }: { data: { email: string } }) => {
+              if (data.email === 'register-abuse@example.test') {
+                return Promise.reject({ code: 'P2002' });
+              }
+              return Promise.resolve({ id: 10, email: data.email, name: 'New owner' });
+            }),
+          },
+          owner: { create: jest.fn().mockResolvedValue({ id: 20 }) },
+        }),
+      ),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -93,6 +118,58 @@ describe('Authentication and authorization', () => {
       .post('/auth/login')
       .send({ email: 'legacy@example.test', password: 'not-a-legacy-password' })
       .expect(401);
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'inactive@example.test', password: 'AdministratorPass123!' })
+      .expect(401)
+      .expect(({ body }) => expect(body.message).toBe('Invalid credentials.'));
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'missing@example.test', password: 'AdministratorPass123!' })
+      .expect(401)
+      .expect(({ body }) => expect(body.message).toBe('Invalid credentials.'));
+  });
+
+  it('throttles repeated login failures and resets the counter after success', async () => {
+    const login = () => request(app.getHttpServer()).post('/auth/login').send({ email: 'abuse@example.test', password: 'wrong' });
+    for (let attempt = 0; attempt < 5; attempt += 1) await login().expect(401);
+    await login().expect(429).expect(({ headers, body }) => {
+      expect(headers['retry-after']).toEqual(expect.any(String));
+      expect(body.message).toBe('Too many attempts. Try again later.');
+    });
+
+    const resetEmail = 'admin@example.test';
+    await request(app.getHttpServer()).post('/auth/login').send({ email: resetEmail, password: 'wrong' }).expect(401);
+    await request(app.getHttpServer()).post('/auth/login').send({ email: resetEmail, password: 'AdministratorPass123!' }).expect(201);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app.getHttpServer()).post('/auth/login').send({ email: resetEmail, password: 'wrong' }).expect(401);
+    }
+    await request(app.getHttpServer()).post('/auth/login').send({ email: resetEmail, password: 'wrong' }).expect(429);
+  });
+
+  it('throttles repeated owner-registration failures without affecting distinct accounts', async () => {
+    const registration = () =>
+      request(app.getHttpServer()).post('/auth/register-owner').send({
+        name: 'Owner',
+        email: 'register-abuse@example.test',
+        password: 'OwnerPass123!',
+        documentNumber: 'DOC-1',
+        phone: '555-0100',
+        address: 'Main street 1',
+      });
+    for (let attempt = 0; attempt < 5; attempt += 1) await registration().expect(409);
+    await registration().expect(429).expect(({ headers }) => expect(headers['retry-after']).toEqual(expect.any(String)));
+
+    await request(app.getHttpServer()).post('/auth/register-owner').send({
+      name: 'Another owner',
+      email: 'another-owner@example.test',
+      password: 'OwnerPass123!',
+      documentNumber: 'DOC-2',
+      phone: '555-0101',
+      address: 'Main street 2',
+    }).expect(201);
   });
 
   it('rejects unauthenticated and unauthorized access to an administrator endpoint', async () => {
