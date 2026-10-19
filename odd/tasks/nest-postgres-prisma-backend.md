@@ -111,6 +111,12 @@ The current React application stores veterinary, clinical, inventory, and sessio
       - Commit: `0ebe8f0` (`feat(vaccines): persist staff records and owner visibility`).
       - Rollback boundary: revert the B06.11 commit, including vaccine API hydration/mutations, owner-scoped vaccine reads, focused isolation tests, and this checklist evidence; do not revert unrelated clinical, reminder, owner, pet, appointment, or auth work.
 
+    - [x] B06.12 — Migrate veterinary attention registration to the transactional clinical API.
+      - Acceptance: the existing Spanish form submits its `PayloadAtencion` to `POST /clinical/attentions` with the JWT; consultation, vaccines, and optional prescription remain atomic; local clinical, appointment, and stock state changes only after successful server reconciliation; failures preserve form state and show an error; staff-only authorization and veterinarian assignment validation remain intact.
+      - Evidence: `frontend/src/data/store.tsx` maps the form to the backend DTO and refreshes consultations, vaccines, and prescriptions only after a successful response; `AtencionVeterinaria.tsx` awaits the request and retains state on failure; backend clinical tests continue to cover role boundaries, atomic registration, and active-veterinarian validation.
+      - Commit: final `HEAD` (`feat(frontend): migrate veterinary attention registration to API`); immutable hash is reported in the delivery result.
+      - Rollback boundary: revert only the B06.12 commit, including attention payload mapping/reconciliation, prescription item response inclusion, focused evidence, and this checklist entry; preserve B06.1–B06.11 authentication, owner/pet, scheduling, vaccine, and service migrations.
+
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
 - B01 implemented a standalone NestJS application in `backend/`; it does not add Prisma, PostgreSQL, authentication, or business modules.
@@ -410,6 +416,16 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Runtime harness: N/A; focused Jest e2e mocks exercise the guarded service boundary and appointment service-reference validation.
 - B06.10 commit identity: final `HEAD` is the single Conventional Commit created for this work unit; the exact immutable hash is reported by `git rev-parse HEAD` in the delivery result.
 - B06.10 rollback boundary: revert only the B06.10 commit, including service hydration/mutations, `backend/prisma/migrations/20261019000000_add_appointment_services`, appointment service DTO/model support, the focused service test, and this evidence. Preserve B06.1–B06.9 behavior.
+
+- B06.12 implementation details: staff hydration now reads consultations and prescriptions from the existing protected clinical endpoints. Attention submission sends the backend enum values, vaccine due dates, and prescription items, then refreshes clinical collections only after `POST /clinical/attentions` succeeds. The backend includes prescription items in transactional and collection responses so the frontend can reconcile the server representation. Attachments and follow-up appointments remain outside this endpoint's transaction and are not locally claimed as persisted.
+- B06.12 verification:
+  - Frontend `npm run lint` — passed with 2 pre-existing hook-dependency warnings in `Citas.tsx` and `Vacunas.tsx`, no errors.
+  - Frontend `npm run build` — passed; TypeScript and Vite production build completed.
+  - Backend focused tests: `npm test -- --runInBand test/clinical.e2e-spec.ts test/auth.e2e-spec.ts test/reminders.e2e-spec.ts` — passed (3 suites, 8 tests), including clinical role boundaries, atomic registration, and veterinarian validation.
+  - Backend `npm run lint` and `npm run build` — passed.
+  - Frontend focused tests: N/A; the frontend package has no test runner or test files, so typed build validation covers the provider and form path.
+  - Runtime harness: N/A; no new runtime harness exists for the frontend package.
+- B06.12 commit identity: final `HEAD` (`feat(frontend): migrate veterinary attention registration to API`); immutable hash is reported in the delivery result.
 
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

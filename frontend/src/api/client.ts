@@ -71,6 +71,29 @@ export type BackendVaccine = {
   batch: string | null
 }
 
+export type BackendConsultation = {
+  id: number
+  petId: number
+  veterinarianId: number
+  occurredAt: string
+  type: 'GENERAL_CONSULTATION' | 'VACCINATION' | 'FOLLOW_UP' | 'SURGERY' | 'EMERGENCY' | 'DEWORMING'
+  diagnosis: string
+  treatment: string
+  recommendations: string
+  status: 'COMPLETED' | 'IN_FOLLOWUP'
+}
+
+export type BackendPrescription = {
+  id: number
+  petId: number
+  veterinarianId: number
+  consultationId: number | null
+  issuedAt: string
+  instructions: string | null
+  status: 'ISSUED' | 'DISPENSED'
+  items: { medication: string; dose: string; days: number }[]
+}
+
 export type BackendAppointmentRequest = {
   id: number
   ownerId: number

@@ -23,7 +23,7 @@ import { CheckIcon, DownloadIcon, PlusIcon, StethoscopeIcon, SyringeIcon, TrashI
 import { EditorReceta } from '../components/EditorReceta'
 import { ModalConsulta } from '../components/ModalConsulta'
 import type { ErroresFormulario } from '../hooks'
-import type { Adjunto, Consulta, RecetaEmitida, TipoAtencion, VacunaAplicada } from '../data/types'
+import type { Adjunto, Consulta, PayloadAtencion, RecetaEmitida, TipoAtencion, VacunaAplicada } from '../data/types'
 
 export default function AtencionVeterinaria() {
   const datos = useDatos()
@@ -77,7 +77,7 @@ export default function AtencionVeterinaria() {
     )
   }
 
-  function registrar() {
+  async function registrar() {
     const err: ErroresFormulario = {}
     if (!mascotaId) err.mascotaId = 'Seleccione el paciente.'
     if (diagnostico.trim().length < 4) err.diagnostico = 'Describa el diagnóstico.'
@@ -85,7 +85,7 @@ export default function AtencionVeterinaria() {
     setErrores(err)
     if (Object.keys(err).length) return
 
-    datos.registrarAtencion({
+    const payload: PayloadAtencion = {
       mascotaId: Number(mascotaId),
       tipo,
       diagnostico: diagnostico.trim(),
@@ -96,22 +96,31 @@ export default function AtencionVeterinaria() {
       archivos,
       vetId: user?.id ?? 0,
       proximaControl: conControl ? proximaControl : null,
-    })
+    }
 
-    setGuardado(true)
-    toast({
-      titulo: 'Atención registrada',
-      detalle: 'Se actualizó el historial, las vacunas y el portal del propietario.',
-      tipo: 'exito',
-    })
+    try {
+      await datos.registrarAtencion(payload)
+      setGuardado(true)
+      toast({
+        titulo: 'Atención registrada',
+        detalle: 'Se actualizó el historial y las vacunas desde el backend.',
+        tipo: 'exito',
+      })
 
-    setDiagnostico('')
-    setTratamiento('')
-    setRecomendaciones('')
-    setVacunas([])
-    setReceta(null)
-    setArchivos([])
-    setErrores({})
+      setDiagnostico('')
+      setTratamiento('')
+      setRecomendaciones('')
+      setVacunas([])
+      setReceta(null)
+      setArchivos([])
+      setErrores({})
+    } catch (error) {
+      toast({
+        tipo: 'error',
+        titulo: 'No se pudo registrar la atención',
+        detalle: error instanceof Error ? error.message : 'Intente nuevamente.',
+      })
+    }
   }
 
   function reiniciar() {

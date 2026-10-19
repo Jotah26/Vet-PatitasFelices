@@ -57,6 +57,7 @@ export class ClinicalService {
                 })),
               },
             },
+            include: { items: true },
           });
         } catch (error: unknown) {
           throw this.translateError(error);
@@ -115,7 +116,10 @@ export class ClinicalService {
   }
 
   listPrescriptions(petId?: number) {
-    return this.prisma.prescription.findMany({ where: petId === undefined ? undefined : { petId } });
+    return this.prisma.prescription.findMany({
+      where: petId === undefined ? undefined : { petId },
+      include: { items: true },
+    });
   }
 
   async createPrescription(data: CreatePrescriptionDto) {

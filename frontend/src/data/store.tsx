@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendOwner, BackendPet, BackendService, BackendVaccine } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendConsultation, BackendOwner, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -87,6 +87,39 @@ const mapVaccine = (vaccine: BackendVaccine): Vacuna => ({
   proxima: dateOnly(vaccine.nextDueAt) || sumarDias(dateOnly(vaccine.administeredAt), dias_vacuna[vaccine.name] ?? 365),
   ...(vaccine.administeredById != null ? { aplicadaPorId: vaccine.administeredById } : {}),
   ...(vaccine.batch ? { lote: vaccine.batch } : {}),
+})
+
+const attentionTypes: Record<BackendConsultation['type'], Consulta['tipo']> = {
+  GENERAL_CONSULTATION: 'Consulta general',
+  VACCINATION: 'Vacunación',
+  FOLLOW_UP: 'Control / seguimiento',
+  SURGERY: 'Cirugía',
+  EMERGENCY: 'Urgencia',
+  DEWORMING: 'Desparasitación',
+}
+
+const mapConsultation = (consultation: BackendConsultation): Consulta => ({
+  id: consultation.id,
+  mascotaId: consultation.petId,
+  fecha: consultation.occurredAt.slice(0, 10),
+  vetId: consultation.veterinarianId,
+  tipo: attentionTypes[consultation.type],
+  diagnostico: consultation.diagnosis,
+  tratamiento: consultation.treatment,
+  recomendaciones: consultation.recommendations,
+  estado: consultation.status === 'IN_FOLLOWUP' ? 'En seguimiento' : 'Completada',
+  archivos: [],
+})
+
+const mapPrescription = (prescription: BackendPrescription): Receta => ({
+  id: prescription.id,
+  mascotaId: prescription.petId,
+  fecha: prescription.issuedAt.slice(0, 10),
+  vetId: prescription.veterinarianId,
+  ...(prescription.consultationId != null ? { consultaId: prescription.consultationId } : {}),
+  items: prescription.items.map((item) => ({ medicamento: item.medication, dosis: item.dose, dias: item.days })),
+  estado: prescription.status === 'DISPENSED' ? 'Dispensada' : 'Emitida',
+  ...(prescription.instructions ? { indicaciones: prescription.instructions } : {}),
 })
 
 const mapAppointmentRequest = (request: BackendAppointmentRequest): Solicitud => {
@@ -212,6 +245,10 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, tarifario: accion.datos }
     case 'API_VACUNAS':
       return { ...estado, vacunas: accion.datos }
+    case 'API_CONSULTAS':
+      return { ...estado, consultas: accion.datos }
+    case 'API_RECETAS':
+      return { ...estado, recetas: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     case 'API_SOLICITUD_ACTUALIZAR':
@@ -572,8 +609,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendAppointment[]>(ownerPortal ? '/appointments/mine' : '/appointments', {}, accessToken()),
       apiRequest<BackendService[]>('/services', {}, accessToken()),
       apiRequest<BackendVaccine[]>(ownerPortal ? '/vaccines/mine' : '/vaccines', {}, accessToken()),
+      ownerPortal ? Promise.resolve([] as BackendConsultation[]) : apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
+      ownerPortal ? Promise.resolve([] as BackendPrescription[]) : apiRequest<BackendPrescription[]>('/prescriptions', {}, accessToken()),
     ])
-      .then(([owners, pets, requests, appointments, services, vaccines]) => {
+      .then(([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions]) => {
         if (!activo) return
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
@@ -586,6 +625,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
         dispatch({ tipo: 'API_SERVICIOS', datos: services.map(mapService) })
         dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
+        dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map(mapConsultation) })
+        dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -687,7 +728,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      registrarAtencion: (payload) => dispatch({ tipo: 'ATENCION_REGISTRAR', datos: payload }),
+      registrarAtencion: async (payload) => {
+        const attentionType: Record<PayloadAtencion['tipo'], string> = {
+          'Consulta general': 'GENERAL_CONSULTATION',
+          'Vacunación': 'VACCINATION',
+          'Control / seguimiento': 'FOLLOW_UP',
+          'Cirugía': 'SURGERY',
+          'Urgencia': 'EMERGENCY',
+          'Desparasitación': 'DEWORMING',
+        }
+        await apiRequest('/clinical/attentions', {
+          method: 'POST',
+          body: JSON.stringify({
+            petId: payload.mascotaId,
+            veterinarianId: payload.vetId,
+            type: attentionType[payload.tipo],
+            diagnosis: payload.diagnostico,
+            treatment: payload.tratamiento,
+            recommendations: payload.recomendaciones,
+            vaccines: payload.vacunas?.map((vaccine) => ({
+              name: vaccine.nombre,
+              batch: vaccine.lote,
+              nextDueAt: vaccine.proxima ? new Date(`${vaccine.proxima}T00:00:00`).toISOString() : undefined,
+            })),
+            prescription: payload.receta && payload.receta.items.length > 0 ? {
+              items: payload.receta.items.map((item) => ({ medication: item.medicamento, dose: item.dosis, days: item.dias })),
+              instructions: payload.receta.indicaciones,
+            } : undefined,
+          }),
+        }, accessToken())
+        const [consultations, vaccines, prescriptions] = await Promise.all([
+          apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
+          apiRequest<BackendVaccine[]>('/vaccines', {}, accessToken()),
+          apiRequest<BackendPrescription[]>('/prescriptions', {}, accessToken()),
+        ])
+        dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map(mapConsultation) })
+        dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
+        dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
+      },
 
       crearCita: async (payload) => {
         const appointment = await apiRequest<BackendAppointment>('/appointments', {
