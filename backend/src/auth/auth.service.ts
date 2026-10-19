@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserStatus } from '../generated/prisma/client';
+import { RoleKey, UserStatus } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { PasswordService } from './password.service';
@@ -41,8 +41,11 @@ export class AuthService {
   async registerOwner(data: RegisterOwnerDto) {
     try {
       const result = await this.prisma.$transaction(async (tx) => {
-        const role = await tx.role.findUnique({ where: { key: 'OWNER' } });
-        if (!role) throw new Error('Owner role is not configured.');
+        const role = await tx.role.upsert({
+          where: { key: RoleKey.OWNER },
+          update: {},
+          create: { key: RoleKey.OWNER },
+        });
         const user = await tx.user.create({
           data: {
             name: data.name.trim(),
