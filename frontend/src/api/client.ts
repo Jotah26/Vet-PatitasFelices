@@ -92,6 +92,20 @@ export type BackendVaccine = {
   batch: string | null
 }
 
+export type BackendReminder = {
+  class: 'vaccine' | 'appointment'
+  petId: number
+  petName?: string
+  title: string
+  date: string
+  days: number
+}
+
+export function getReminders(petId?: number): Promise<BackendReminder[]> {
+  const query = petId === undefined ? '' : `?petId=${encodeURIComponent(petId)}`
+  return apiRequest<BackendReminder[]>(`/reminders${query}`, {}, accessToken())
+}
+
 export type BackendConsultation = {
   id: number
   petId: number

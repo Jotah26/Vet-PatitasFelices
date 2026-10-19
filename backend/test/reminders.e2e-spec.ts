@@ -9,6 +9,7 @@ describe('Reminders vertical', () => {
   let app: INestApplication;
   let staffToken: string;
   let ownerToken: string;
+  let unlinkedOwnerToken: string;
   beforeAll(async () => {
     const prisma = {
       owner: { findUnique: jest.fn(({ where }: { where: { userId: number } }) => where.userId === 10 ? { id: 1 } : null) },
@@ -41,6 +42,7 @@ describe('Reminders vertical', () => {
     const jwt = app.get(JwtService);
     staffToken = await jwt.signAsync({ sub: 12, email: 'staff@example.test', role: 'RECEPTIONIST' });
     ownerToken = await jwt.signAsync({ sub: 10, email: 'owner@example.test', role: 'OWNER' });
+    unlinkedOwnerToken = await jwt.signAsync({ sub: 11, email: 'unlinked@example.test', role: 'OWNER' });
   });
   afterAll(async () => app?.close());
   const asStaff = (builder: request.Test) => builder.set('Authorization', `Bearer ${staffToken}`);
@@ -50,6 +52,7 @@ describe('Reminders vertical', () => {
     await request(app.getHttpServer()).get('/reminders').expect(401);
     await asOwner(request(app.getHttpServer()).get('/reminders')).expect(200);
     await asOwner(request(app.getHttpServer()).get('/reminders?petId=2')).expect(200).expect([]);
+    await request(app.getHttpServer()).get('/reminders').set('Authorization', `Bearer ${unlinkedOwnerToken}`).expect(200).expect([]);
   });
 
   it('returns due vaccine and appointment reminders and supports staff filters', async () => {

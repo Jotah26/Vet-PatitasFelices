@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react'
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
-import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendManagedUser, BackendMedication, BackendOwner, BackendPayment, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
+import { accessToken, apiRequest, getReminders } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendManagedUser, BackendMedication, BackendOwner, BackendPayment, BackendPet, BackendPrescription, BackendReminder, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -117,6 +117,23 @@ const mapVaccine = (vaccine: BackendVaccine): Vacuna => ({
   ...(vaccine.administeredById != null ? { aplicadaPorId: vaccine.administeredById } : {}),
   ...(vaccine.batch ? { lote: vaccine.batch } : {}),
 })
+
+const mapReminder = (reminder: BackendReminder): Recordatorio => {
+  const date = new Date(reminder.date)
+  const fecha = reminder.class === 'vaccine'
+    ? reminder.date.slice(0, 10)
+    : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const hora = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  const clave = `${reminder.class === 'vaccine' ? 'v' : 'c'}:${reminder.petId}:${reminder.title}:${reminder.date}`
+  const detalle = reminder.class === 'vaccine'
+    ? reminder.days === 0
+      ? 'La dosis vence hoy'
+      : reminder.days < 0
+        ? `Venció ${Math.abs(reminder.days)} días atrás`
+        : `Vence en ${reminder.days} ${reminder.days === 1 ? 'día' : 'días'}`
+    : `${reminder.days === 0 ? 'Hoy' : `En ${reminder.days} ${reminder.days === 1 ? 'día' : 'días'}`} a las ${hora}`
+  return { clave, clase: reminder.class === 'vaccine' ? 'vacuna' : 'cita', mascotaId: reminder.petId, titulo: reminder.title, detalle, fecha, dias: reminder.days, enviado: false }
+}
 
 const attentionTypes: Record<BackendConsultation['type'], Consulta['tipo']> = {
   GENERAL_CONSULTATION: 'Consulta general',
@@ -657,6 +674,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast()
   const { user } = useAuth()
   const primerRender = useRef(true)
+  const [recordatoriosApi, setRecordatoriosApi] = useState<Recordatorio[]>([])
+  const [recordatoriosUserId, setRecordatoriosUserId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -712,6 +731,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
         titulo: 'Datos no sincronizados',
         detalle: error instanceof Error ? error.message : 'No se pudieron cargar los datos desde el backend.',
       }))
+    return () => { activo = false }
+  }, [toast, user])
+
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+    let activo = true
+    getReminders()
+      .then((reminders) => {
+        if (!activo) return
+        setRecordatoriosApi(reminders.map(mapReminder))
+        setRecordatoriosUserId(user.id)
+      })
+      .catch((error) => {
+        if (!activo) return
+        setRecordatoriosApi([])
+        setRecordatoriosUserId(user.id)
+        toast({
+          tipo: 'aviso',
+          titulo: 'Recordatorios no cargados',
+          detalle: error instanceof Error ? error.message : 'No se pudieron cargar los recordatorios del servidor.',
+        })
+      })
     return () => { activo = false }
   }, [toast, user])
 
@@ -1137,12 +1180,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
 
       alternarRecordatorio: (clave) => dispatch({ tipo: 'RECORDATORIO_ALTERNAR', datos: { clave } }),
-    recordatorios: construirRecordatorios(estado),
+      // The API is authoritative; sent is only a local UI marker and is not business data.
+      recordatorios: recordatoriosUserId === user?.id
+        ? recordatoriosApi.map((recordatorio) => ({ ...recordatorio, enviado: Boolean(estado.recordatoriosEnviados[recordatorio.clave]) }))
+        : [],
       eliminarArchivo: (id) => dispatch({ tipo: 'ARCHIVO_ELIMINAR', datos: { id } }),
 
       semanas: { hoy: hoy, manana: d(1), semana: d(7), mes: d(30) },
     }
-  }, [estado, user])
+  }, [estado, recordatoriosApi, recordatoriosUserId, user])
 
   return <Contexto.Provider value={api}>{children}</Contexto.Provider>
 }

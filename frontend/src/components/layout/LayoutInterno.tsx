@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
-import { useDatos, construirRecordatorios } from '../../data/store'
+import { useDatos } from '../../data/store'
 import { seccionesDe } from '../../data/nav'
 import { fmtCorto, fmtLargo, iniciales, hoy } from '../../data/fechas'
 import { BotonIcono } from '../ui'
@@ -256,7 +256,7 @@ export function Layout() {
   }
 
   const recordatorios = useMemo(() => {
-    const pendientes = construirRecordatorios(datos).filter((r) => !r.enviado)
+    const pendientes = datos.recordatorios.filter((r) => !r.enviado)
     if (user?.rol !== 'vet') return pendientes
     const misPacientes = new Set(datos.citas.filter((c) => c.vetId === user.id).map((c) => c.mascotaId))
     return pendientes.filter((r) => misPacientes.has(r.mascotaId))

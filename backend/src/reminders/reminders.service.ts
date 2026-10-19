@@ -13,6 +13,7 @@ export class RemindersService {
     const ownerId = user.role === RoleKey.OWNER
       ? (await this.prisma.owner.findUnique({ where: { userId: user.sub } }))?.id
       : undefined;
+    if (user.role === RoleKey.OWNER && ownerId === undefined) return [];
     const pets = await this.prisma.pet.findMany({ where: { ...(ownerId === undefined ? {} : { ownerId }), ...(petId === undefined ? {} : { id: petId }) } });
     const petIds = pets.map((pet) => pet.id);
     if (petIds.length === 0) return [];
