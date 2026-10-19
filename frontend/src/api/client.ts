@@ -52,6 +52,19 @@ export type BackendPet = {
   photoDataUrl?: string
 }
 
+export type BackendAppointmentRequest = {
+  id: number
+  ownerId: number
+  petId: number
+  scheduledAt: string
+  reason: string
+  resolutionState: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  rejectionReason: string | null
+  resolvedAppointmentId: number | null
+  resolvedAt: string | null
+  createdAt: string
+}
+
 export type RegisterOwnerRequest = {
   name: string
   email: string

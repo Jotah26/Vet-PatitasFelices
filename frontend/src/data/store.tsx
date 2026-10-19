@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendOwner, BackendPet } from '../api/client'
+import type { BackendAppointmentRequest, BackendOwner, BackendPet } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -17,6 +17,7 @@ import type {
   PayloadAtencion,
   Receta,
   Recordatorio,
+  Solicitud,
   Servicio,
   Vacuna,
   EstadoVacuna,
@@ -67,6 +68,26 @@ const mapPet = (pet: BackendPet): Mascota => ({
   antecedentes: pet.medicalBackground,
   ...(pet.photoDataUrl ? { foto: pet.photoDataUrl } : {}),
 })
+
+const mapAppointmentRequest = (request: BackendAppointmentRequest): Solicitud => {
+  const scheduledAt = new Date(request.scheduledAt)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const estado = { PENDING: 'Pendiente', ACCEPTED: 'Aceptada', REJECTED: 'Rechazada' } as const
+  return {
+    id: request.id,
+    propietarioId: request.ownerId,
+    mascotaId: request.petId,
+    fecha: `${scheduledAt.getFullYear()}-${pad(scheduledAt.getMonth() + 1)}-${pad(scheduledAt.getDate())}`,
+    hora: `${pad(scheduledAt.getHours())}:${pad(scheduledAt.getMinutes())}`,
+    servicioId: null,
+    motivo: request.reason,
+    estado: estado[request.resolutionState],
+    creada: request.createdAt,
+    ...(request.resolvedAt ? { resuelta: request.resolvedAt } : {}),
+    ...(request.rejectionReason ? { motivoRechazo: request.rejectionReason } : {}),
+    ...(request.resolvedAppointmentId ? { citaId: request.resolvedAppointmentId } : {}),
+  }
+}
 
 const ownerRequest = (owner: Partial<Propietario>) => ({
   ...(owner.nombre !== undefined ? { name: owner.nombre } : {}),
@@ -141,6 +162,10 @@ function reducer(estado: Estado, accion: Accion): Estado {
   switch (accion.tipo) {
     case 'API_PROPIETARIOS_MASCOTAS':
       return { ...estado, propietarios: accion.datos.propietarios, mascotas: accion.datos.mascotas }
+    case 'API_SOLICITUDES':
+      return { ...estado, solicitudes: accion.datos }
+    case 'API_SOLICITUD_CREAR':
+      return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     /* ---------- Usuarios ---------- */
     case 'USUARIO_CREAR':
       return {
@@ -482,11 +507,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     let activo = true
     const ownerPortal = user.rol === 'propietario'
+    if (ownerPortal) dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     Promise.all([
       ownerPortal ? Promise.resolve([] as BackendOwner[]) : apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
       apiRequest<BackendPet[]>(ownerPortal ? '/pets/mine' : '/pets', {}, accessToken()),
+      ownerPortal ? apiRequest<BackendAppointmentRequest[]>('/appointment-requests', {}, accessToken()) : Promise.resolve(null),
     ])
-      .then(([owners, pets]) => {
+      .then(([owners, pets, requests]) => {
         if (!activo) return
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
@@ -495,6 +522,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             mascotas: pets.map(mapPet),
           },
         })
+        if (requests) dispatch({ tipo: 'API_SOLICITUDES', datos: requests.map(mapAppointmentRequest) })
       })
       .catch(() => toast({ tipo: 'aviso', titulo: 'Datos no sincronizados', detalle: 'No se pudieron cargar propietarios y mascotas desde el backend.' }))
     return () => { activo = false }
@@ -506,7 +534,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      localStorage.setItem(clave_bd, JSON.stringify({ ...estado, propietarios: [], mascotas: [] }))
+      localStorage.setItem(
+        clave_bd,
+        JSON.stringify({
+          ...estado,
+          propietarios: [],
+          mascotas: [],
+          solicitudes: user?.rol === 'propietario' ? [] : estado.solicitudes,
+        }),
+      )
     } catch {
       toast({
         tipo: 'error',
@@ -514,7 +550,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         detalle: 'No se pudo guardar. Elimine algún archivo adjunto o reinicie los datos.',
       })
     }
-  }, [estado, toast])
+  }, [estado, toast, user])
 
   const api = useMemo<DatosApi>(() => {
     const usuario = (id: number | null | undefined) => estado.usuarios.find((u) => u.id === id)
@@ -589,7 +625,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       actualizarCita: (id, cambios) => dispatch({ tipo: 'CITA_ACTUALIZAR', datos: { id, cambios } }),
       cancelarCita: (id) => dispatch({ tipo: 'CITA_ESTADO', datos: { id, estado: 'Cancelada' } }),
 
-      solicitarCita: (payload) => dispatch({ tipo: 'SOLICITUD_CREAR', datos: payload }),
+      solicitarCita: async (payload) => {
+        const request = await apiRequest<BackendAppointmentRequest>('/appointment-requests', {
+          method: 'POST',
+          body: JSON.stringify({
+            petId: payload.mascotaId,
+            scheduledAt: new Date(`${payload.fecha}T${payload.hora}:00`).toISOString(),
+            reason: payload.motivo,
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'API_SOLICITUD_CREAR', datos: mapAppointmentRequest(request) })
+      },
       aceptarSolicitud: (id, vetId) => dispatch({ tipo: 'SOLICITUD_ACEPTAR', datos: { id, vetId } }),
       rechazarSolicitud: (id, motivo) => dispatch({ tipo: 'SOLICITUD_RECHAZAR', datos: { id, motivo } }),
 

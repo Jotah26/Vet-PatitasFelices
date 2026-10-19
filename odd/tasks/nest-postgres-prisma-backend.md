@@ -94,7 +94,11 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - [x] B06.3 — Add secure owner self-registration.
     - Route: direct; auth endpoint, owner relation, and login form are coupled.
     - Acceptance: visitors can create only `OWNER` accounts, receive a JWT, and enter the owner portal; staff roles cannot be self-assigned.
-    - Checks: frontend lint/build and backend auth/build.
+     - Checks: frontend lint/build and backend auth/build.
+   - [x] B06.6 — Migrate owner-portal appointment request persistence to the authenticated API.
+     - Route: direct; owner portal hydration and request submission share the existing appointment-request API.
+     - Acceptance: owner requests load from `GET /appointment-requests`, creation uses `POST /appointment-requests` without a client owner identifier, backend authorization remains JWT-derived, and failures do not report success or persist local request state.
+     - Checks: frontend lint/build and backend appointment-request/auth tests, lint, and build.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
@@ -340,6 +344,19 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Runtime harness: N/A; focused Jest e2e mocks exercise the guarded route boundary and the requested frontend build/lint checks passed.
 - B06.5 commit identity: the final `HEAD` is the single Conventional Commit created for this work unit; the exact hash is reported by `git rev-parse HEAD` in the delivery result.
 - B06.5 rollback boundary: revert only the B06.5 commit, or remove the owner pet DTOs and `/pets/mine` controller/service methods, the owner relation field in auth responses, the owner-portal route selection/mapping changes in `frontend/src/data/store.tsx`, `frontend/src/auth/AuthContext.tsx`, `frontend/src/api/client.ts`, `frontend/src/components/ModalMascotaPortal.tsx`, the focused test additions, and this evidence. Preserve B06.1–B06.4 authentication, hydration, and staff CRUD behavior.
+
+- B06.6 migrates owner-portal appointment requests to the authenticated API. Owner hydration calls `GET /appointment-requests`, request creation calls `POST /appointment-requests` with only `petId`, `scheduledAt`, and `reason`, and the backend continues deriving `ownerId` from the JWT-linked owner. Backend resolution endpoints and staff local listing/actions remain unchanged. Backend statuses and timestamps map to the existing Spanish `Solicitud` shape, and owner requests are excluded from localStorage persistence.
+- B06.6 acceptance: authenticated owners see only backend-backed requests; successful submissions update the UI from the server response; failed submissions leave request state unchanged and show an error toast; staff request listing/accept/reject behavior remains intact; no client-supplied owner identifier is sent for authorization.
+- B06.6 verification:
+  - Frontend `npm run lint` — passed with the same 2 pre-existing hook dependency warnings in `frontend/src/pages/Citas.tsx` and `frontend/src/pages/Vacunas.tsx`, no errors.
+  - Frontend `npm run build` — passed; TypeScript and Vite production build completed.
+  - Backend appointment-request test: `npm test -- --runInBand test/appointment-requests.e2e-spec.ts` — passed (1 suite, 4 tests).
+  - Backend auth test: `npm run test:auth` — passed (1 suite, 2 tests).
+  - Backend lint/build: `npm run lint` and `npm run build` — passed with no output.
+  - Frontend focused unit tests: N/A; the frontend package has no test runner or test files, so the build validates the typed provider and modal path.
+  - Runtime harness: N/A; no new runtime harness exists, while the backend focused e2e mock exercises owner derivation and request lifecycle boundaries.
+- B06.6 commit identity: final `HEAD` (`feat(frontend): migrate owner appointment requests to API`); the delivery record reports the immutable full hash.
+- B06.6 rollback boundary: revert only the B06.6 commit, or remove the appointment-request API type/mapping, owner request hydration and POST mutation in `frontend/src/data/store.tsx`, the modal's async error handling, the related action/type declarations, and this evidence. Preserve the backend appointment-request endpoints and all B06.1–B06.5 authentication, hydration, owner-pet, and staff behavior.
 
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

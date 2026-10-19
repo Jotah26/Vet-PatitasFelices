@@ -351,6 +351,8 @@ export type Accion =
   | { tipo: 'ATENCION_REGISTRAR'; datos: PayloadAtencion }
   | { tipo: 'RESTABLECER' }
   | { tipo: 'API_PROPIETARIOS_MASCOTAS'; datos: { propietarios: Propietario[]; mascotas: Mascota[] } }
+  | { tipo: 'API_SOLICITUDES'; datos: Solicitud[] }
+  | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
 
 /* ---------- API del store ---------- */
 
@@ -396,7 +398,7 @@ export interface DatosApi extends Estado {
   actualizarCita: (id: number, cambios: Partial<Cita>) => void
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void
   cancelarCita: (id: number) => void
-  solicitarCita: (payload: NuevaSolicitud) => void
+  solicitarCita: (payload: NuevaSolicitud) => Promise<void>
   aceptarSolicitud: (id: number, vetId: number) => void
   rechazarSolicitud: (id: number, motivo: string) => void
   crearMascota: (payload: Omit<Mascota, 'id'>) => Promise<void>

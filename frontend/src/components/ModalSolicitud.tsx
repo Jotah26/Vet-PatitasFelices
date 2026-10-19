@@ -43,18 +43,22 @@ export function ModalSolicitud({ abierto, alCerrar }: { abierto: boolean; alCerr
   if (v.motivo.trim().length < 8) errores.motivo = 'Cuéntenos brevemente qué necesita (mínimo 8 caracteres).'
   if (v.fecha < hoy) errores.fecha = 'La fecha no puede ser pasada.'
 
-  function enviar() {
+  async function enviar() {
     setTocado(true)
     if (Object.keys(errores).length) return
-    const payload: NuevaSolicitud = {
-      propietarioId: user?.propietarioId ?? 0,
+    const payload = {
       mascotaId: Number(v.mascotaId),
       servicioId: v.servicioId ? Number(v.servicioId) : null,
       fecha: v.fecha,
       hora: v.hora,
       motivo: v.motivo.trim(),
+    } as NuevaSolicitud
+    try {
+      await datos.solicitarCita(payload)
+    } catch (error) {
+      toast({ titulo: 'No se pudo enviar la solicitud', detalle: error instanceof Error ? error.message : 'Inténtelo nuevamente.', tipo: 'error' })
+      return
     }
-    datos.solicitarCita(payload)
     toast({
       titulo: 'Solicitud enviada',
       detalle: 'La recepción la confirmará a la brevedad.',
