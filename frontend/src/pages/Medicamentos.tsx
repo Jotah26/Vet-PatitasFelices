@@ -56,14 +56,18 @@ export default function Medicamentos() {
   const [errorCantidad, setErrorCantidad] = useState('')
   const consulta = useDebounce(texto, 200)
 
-  function reponer() {
+  async function reponer() {
     if (!reponiendo) return
     if (!(Number(cantidad) > 0)) {
       setErrorCantidad('Ingrese una cantidad mayor a cero.')
       return
     }
-    datos.reponerMedicamento(reponiendo.id, Number(cantidad))
-    setReponiendo(null)
+    try {
+      await datos.reponerMedicamento(reponiendo.id, Number(cantidad))
+      setReponiendo(null)
+    } catch (error) {
+      setErrorCantidad(error instanceof Error ? error.message : 'No se pudo actualizar el stock.')
+    }
   }
 
   const crud = useCRUD<MedicamentoForm>({

@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendOwner, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendAttachment, BackendConsultation, BackendMedication, BackendOwner, BackendPet, BackendPrescription, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -225,6 +225,31 @@ const petRequest = (pet: Partial<Mascota>, includeOwner = true) => ({
  *  el año por defecto. */
 export const dias_vacuna: Record<string, number> = { Antirrábica: 365 }
 
+const categoriasMedicamento: Record<BackendMedication['category'], import('./types').CategoriaMedicamento> = {
+  ANTIALLERGIC: 'Antialérgico',
+  ANTIBIOTIC: 'Antibiótico',
+  ANTIPARASITIC: 'Antiparasitario',
+  FLEA: 'Antipulgas',
+  SUPPLY: 'Insumo',
+  VACCINE: 'Vacuna',
+}
+const categoriasMedicamentoBackend = Object.fromEntries(
+  Object.entries(categoriasMedicamento).map(([backend, frontend]) => [frontend, backend]),
+) as Record<import('./types').CategoriaMedicamento, BackendMedication['category']>
+
+const mapMedication = (medication: BackendMedication): import('./types').Medicamento => ({
+  id: medication.id,
+  nombre: medication.name,
+  categoria: categoriasMedicamento[medication.category],
+  presentacion: medication.presentation,
+  stock: medication.stock,
+  stockMin: medication.minStock,
+  precio: Number(medication.price),
+  ...(medication.activeIngredient ? { principioActivo: medication.activeIngredient } : {}),
+  ...(medication.batch ? { lote: medication.batch } : {}),
+  ...(medication.expiresAt ? { vencimiento: medication.expiresAt.slice(0, 10) } : {}),
+})
+
 function siguienteId(coleccion: { id: number }[]) {
   return coleccion.reduce((max, item) => Math.max(max, item.id ?? 0), 0) + 1
 }
@@ -284,6 +309,8 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, consultas: accion.datos }
     case 'API_RECETAS':
       return { ...estado, recetas: accion.datos }
+    case 'API_MEDICAMENTOS':
+      return { ...estado, medicamentos: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     case 'API_SOLICITUD_ACTUALIZAR':
@@ -442,7 +469,7 @@ function reducer(estado: Estado, accion: Accion): Estado {
     case 'MEDICAMENTO_CREAR':
       return {
         ...estado,
-        medicamentos: [...estado.medicamentos, { id: siguienteId(estado.medicamentos), ...accion.datos }],
+        medicamentos: [...estado.medicamentos, accion.datos],
       }
     case 'MEDICAMENTO_ACTUALIZAR':
       return {
@@ -572,13 +599,6 @@ function registrarAtencion(estado: Estado, datos: PayloadAtencion): Estado {
       ]
     : estado.recetas
 
-  const medicamentosFinales = recetaConItems
-    ? estado.medicamentos.map((med) => {
-        const item = receta.items.find((i) => i.medicamento === med.nombre)
-        return item ? { ...med, stock: Math.max(0, med.stock - 1) } : med
-      })
-    : estado.medicamentos
-
   const citasAtendidas = estado.citas.map((c) =>
     c.mascotaId === mascotaId && c.fecha === hoy && !c.atendida
       ? { ...c, atendida: true, estado: 'Atendida' as const, consultaId }
@@ -608,7 +628,6 @@ function registrarAtencion(estado: Estado, datos: PayloadAtencion): Estado {
     consultas: [...estado.consultas, consulta],
     vacunas: [...estado.vacunas, ...vacunasCreadas],
     recetas: recetasFinales,
-    medicamentos: medicamentosFinales,
     citas: citasFinales,
   }
 }
@@ -634,6 +653,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     let activo = true
     const ownerPortal = user.rol === 'propietario'
+    dispatch({ tipo: 'API_MEDICAMENTOS', datos: [] })
     dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     dispatch({ tipo: 'API_CITAS', datos: [] })
     if (ownerPortal) dispatch({ tipo: 'API_RECETAS', datos: [] })
@@ -647,8 +667,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendVaccine[]>(ownerPortal ? '/vaccines/mine' : '/vaccines', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendConsultation[]) : apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
       apiRequest<BackendPrescription[]>(ownerPortal ? '/prescriptions/mine' : '/prescriptions', {}, accessToken()),
+      ownerPortal ? Promise.resolve([] as BackendMedication[]) : apiRequest<BackendMedication[]>('/medications', {}, accessToken()),
     ])
-      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions]) => {
+      .then(async ([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions, medications]) => {
         if (!activo) return
         const attachmentLists = await Promise.all(
           consultations.map((consultation) => apiRequest<BackendAttachment[]>(`/consultations/${consultation.id}/attachments`, {}, accessToken())),
@@ -666,6 +687,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
         dispatch({ tipo: 'API_CONSULTAS', datos: consultations.map((consultation, index) => mapConsultation(consultation, attachmentLists[index])) })
         dispatch({ tipo: 'API_RECETAS', datos: prescriptions.map(mapPrescription) })
+        dispatch({ tipo: 'API_MEDICAMENTOS', datos: medications.map(mapMedication) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -691,6 +713,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           vacunas: [],
           solicitudes: [],
           recetas: user?.rol === 'propietario' ? [] : estado.recetas,
+          medicamentos: [],
         }),
       )
     } catch {
@@ -995,10 +1018,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'SERVICIO_ELIMINAR', datos: { id } })
       },
 
-      crearMedicamento: (payload) => dispatch({ tipo: 'MEDICAMENTO_CREAR', datos: payload }),
-      actualizarMedicamento: (id, cambios) => dispatch({ tipo: 'MEDICAMENTO_ACTUALIZAR', datos: { id, cambios } }),
-      eliminarMedicamento: (id) => dispatch({ tipo: 'MEDICAMENTO_ELIMINAR', datos: { id } }),
-      reponerMedicamento: (id, cantidad) => dispatch({ tipo: 'MEDICAMENTO_REPONER', datos: { id, cantidad } }),
+      crearMedicamento: async (payload) => {
+        const medication = await apiRequest<BackendMedication>('/medications', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: payload.nombre,
+            category: categoriasMedicamentoBackend[payload.categoria],
+            presentation: payload.presentacion,
+            stock: payload.stock,
+            minStock: payload.stockMin,
+            price: payload.precio,
+            activeIngredient: payload.principioActivo || undefined,
+            batch: payload.lote || undefined,
+            expiresAt: payload.vencimiento ? new Date(`${payload.vencimiento}T00:00:00`).toISOString() : undefined,
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'MEDICAMENTO_CREAR', datos: mapMedication(medication) })
+      },
+      actualizarMedicamento: async (id, cambios) => {
+        const medication = await apiRequest<BackendMedication>(`/medications/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            ...(cambios.nombre !== undefined ? { name: cambios.nombre } : {}),
+            ...(cambios.categoria !== undefined ? { category: categoriasMedicamentoBackend[cambios.categoria] } : {}),
+            ...(cambios.presentacion !== undefined ? { presentation: cambios.presentacion } : {}),
+            ...(cambios.stock !== undefined ? { stock: cambios.stock } : {}),
+            ...(cambios.stockMin !== undefined ? { minStock: cambios.stockMin } : {}),
+            ...(cambios.precio !== undefined ? { price: cambios.precio } : {}),
+            ...(cambios.principioActivo !== undefined ? { activeIngredient: cambios.principioActivo || undefined } : {}),
+            ...(cambios.lote !== undefined ? { batch: cambios.lote || undefined } : {}),
+            ...(cambios.vencimiento !== undefined ? { expiresAt: cambios.vencimiento ? new Date(`${cambios.vencimiento}T00:00:00`).toISOString() : null } : {}),
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'MEDICAMENTO_ACTUALIZAR', datos: { id, cambios: mapMedication(medication) } })
+      },
+      eliminarMedicamento: async (id) => {
+        await apiRequest<null>(`/medications/${id}`, { method: 'DELETE' }, accessToken())
+        dispatch({ tipo: 'MEDICAMENTO_ELIMINAR', datos: { id } })
+      },
+      reponerMedicamento: async (id, cantidad) => {
+        const medication = await apiRequest<BackendMedication>(`/medications/${id}/restock`, {
+          method: 'POST',
+          body: JSON.stringify({ quantity: cantidad }),
+        }, accessToken())
+        dispatch({ tipo: 'MEDICAMENTO_ACTUALIZAR', datos: { id, cambios: mapMedication(medication) } })
+      },
 
       registrarVacuna: async (payload) => {
         const vaccine = await apiRequest<BackendVaccine>('/vaccines', {

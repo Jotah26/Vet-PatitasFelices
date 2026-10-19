@@ -61,6 +61,19 @@ export type BackendService = {
   active: boolean
 }
 
+export type BackendMedication = {
+  id: number
+  name: string
+  category: 'ANTIALLERGIC' | 'ANTIBIOTIC' | 'ANTIPARASITIC' | 'FLEA' | 'SUPPLY' | 'VACCINE'
+  presentation: string
+  stock: number
+  minStock: number
+  price: number
+  activeIngredient: string | null
+  batch: string | null
+  expiresAt: string | null
+}
+
 export type BackendVaccine = {
   id: number
   petId: number

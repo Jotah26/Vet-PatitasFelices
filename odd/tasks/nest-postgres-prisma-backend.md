@@ -115,7 +115,13 @@ The current React application stores veterinary, clinical, inventory, and sessio
       - Acceptance: the existing Spanish form submits its `PayloadAtencion` to `POST /clinical/attentions` with the JWT; consultation, vaccines, and optional prescription remain atomic; local clinical, appointment, and stock state changes only after successful server reconciliation; failures preserve form state and show an error; staff-only authorization and veterinarian assignment validation remain intact.
       - Evidence: `frontend/src/data/store.tsx` maps the form to the backend DTO and refreshes consultations, vaccines, and prescriptions only after a successful response; `AtencionVeterinaria.tsx` awaits the request and retains state on failure; backend clinical tests continue to cover role boundaries, atomic registration, and active-veterinarian validation.
       - Commit: final `HEAD` (`feat(frontend): migrate veterinary attention registration to API`); immutable hash is reported in the delivery result.
-      - Rollback boundary: revert only the B06.12 commit, including attention payload mapping/reconciliation, prescription item response inclusion, focused evidence, and this checklist entry; preserve B06.1–B06.11 authentication, owner/pet, scheduling, vaccine, and service migrations.
+       - Rollback boundary: revert only the B06.12 commit, including attention payload mapping/reconciliation, prescription item response inclusion, focused evidence, and this checklist entry; preserve B06.1–B06.11 authentication, owner/pet, scheduling, vaccine, and service migrations.
+
+    - [x] B06.16 — Migrate staff medication inventory to authenticated API persistence.
+      - Acceptance: staff sessions hydrate medications from `GET /medications`; staff create, update, delete, and restock through authenticated medication endpoints; local state changes only after successful server responses, including server-assigned IDs and authoritative stock; owner inventory access remains forbidden and clinical prescription registration does not apply local seed stock changes.
+      - Evidence: frontend lint/build; backend inventory and auth tests, lint, build, and full test suite recorded below.
+      - Commit identity: the single Conventional Commit created for B06.16; immutable hash is reported in the delivery result.
+      - Rollback boundary: revert only the B06.16 commit, including medication API types/mapping/hydration/mutations, medication DTO expiration support, focused evidence, and this checklist entry; preserve B06.1–B06.15 authentication, owner, scheduling, clinical, vaccine, service, and attachment behavior.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.

@@ -361,7 +361,7 @@ export type Accion =
   | { tipo: 'RECETA_CREAR'; datos: NuevaReceta }
   | { tipo: 'RECETA_ESTADO'; datos: { id: number; estado: EstadoReceta } }
   | { tipo: 'RECETA_ELIMINAR'; datos: { id: number } }
-  | { tipo: 'MEDICAMENTO_CREAR'; datos: Omit<Medicamento, 'id'> }
+  | { tipo: 'MEDICAMENTO_CREAR'; datos: Medicamento }
   | { tipo: 'MEDICAMENTO_ACTUALIZAR'; datos: { id: number; cambios: Partial<Medicamento> } }
   | { tipo: 'MEDICAMENTO_ELIMINAR'; datos: { id: number } }
   | { tipo: 'MEDICAMENTO_REPONER'; datos: { id: number; cantidad: number } }
@@ -378,6 +378,7 @@ export type Accion =
   | { tipo: 'API_VACUNAS'; datos: Vacuna[] }
   | { tipo: 'API_CONSULTAS'; datos: Consulta[] }
   | { tipo: 'API_RECETAS'; datos: Receta[] }
+  | { tipo: 'API_MEDICAMENTOS'; datos: Medicamento[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
   | { tipo: 'API_SOLICITUD_ACTUALIZAR'; datos: Solicitud }
 

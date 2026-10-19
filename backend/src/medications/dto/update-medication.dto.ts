@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsDate, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 import { MedicationCategory } from '../../generated/prisma/client';
 
 export class UpdateMedicationDto {
@@ -42,4 +42,9 @@ export class UpdateMedicationDto {
   @IsOptional()
   @IsString()
   batch?: string;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  expiresAt?: Date | null;
 }
