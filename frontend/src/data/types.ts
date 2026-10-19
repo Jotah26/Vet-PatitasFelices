@@ -435,7 +435,7 @@ export type ResultadoLogin = { ok: false; error: string } | { ok: true; usuario:
 export interface AuthApi {
   user: Usuario | null
   perfil: RolMeta | null
-  login: (email: string, contrasena: string) => ResultadoLogin
+  login: (email: string, contrasena: string) => Promise<ResultadoLogin>
   logout: () => void
   esPropietario: boolean
 }

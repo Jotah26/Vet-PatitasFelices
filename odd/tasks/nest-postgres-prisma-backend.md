@@ -82,6 +82,10 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Route: delegated; frontend and API integration changes.
   - Acceptance: migrated workflows no longer write business data to localStorage.
   - Checks: frontend build/lint and end-to-end workflow checks.
+  - [x] B06.1 — Replace demo login with the backend JWT login client.
+    - Route: delegated; API client, auth state, and route session restoration are coupled.
+    - Acceptance: the frontend authenticates through `POST /auth/login`, stores only the access token, restores the session, and logs out locally.
+    - Checks: frontend lint/build and backend auth regression tests.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
@@ -279,5 +283,13 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Prisma validation: `npm run prisma:validate` — passed; schema valid.
 - B05.5 rollback boundary: remove `backend/src/reminders/`, its import from `backend/src/app.module.ts`, `backend/test/reminders.e2e-spec.ts`, and this B05.5 evidence. B01–B05.4 persistence and behavior remain independent.
 
+- B06.1 adds the frontend API client and replaces demo authentication with `POST /auth/login`; the JWT is stored as `pf_access_token` only for session restoration, and `GET /auth/me` validates/restores the current user. Demo role shortcuts were removed from the login screen.
+- TDD/evidence for B06.1:
+  - Backend auth regression: `npm test -- --runInBand test/auth.e2e-spec.ts` — passed (1 suite, 2 tests).
+  - Backend lint/build: `npm run lint` and `npm run build` — passed.
+  - Frontend lint: `npm run lint` — passed with 2 pre-existing hook dependency warnings in `frontend/src/pages/Citas.tsx` and `frontend/src/pages/Vacunas.tsx`, no errors.
+  - Frontend build: `npm run build` — passed; Vite generated the production bundle.
+- B06.1 rollback boundary: remove `frontend/src/api/client.ts`, restore the demo implementation in `frontend/src/auth/AuthContext.tsx` and `frontend/src/pages/Login.tsx`, remove `GET /auth/me` from the backend auth controller/service, and remove this B06.1 evidence. The unrelated `frontend/package-lock.json` remains outside the work unit.
+
 ## Next step
-Begin B06: migrate the frontend data provider from localStorage to authenticated API clients.
+Continue B06 with the first authenticated data vertical, starting with owners and pets.

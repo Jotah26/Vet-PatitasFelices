@@ -1,49 +1,60 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useDatos } from '../data/store'
+import { apiRequest, type BackendUser, type LoginResponse, type SessionResponse } from '../api/client'
 import { rol } from '../data/roles'
 import type { AuthApi, ResultadoLogin } from '../data/types'
 
-const clave_sesion = 'pf_sesion'
+const clave_sesion = 'pf_access_token'
+const roleMap: Record<BackendUser['role'], 'admin' | 'vet' | 'recepcionista' | 'asistente' | 'propietario'> = {
+  ADMINISTRATOR: 'admin',
+  VETERINARIAN: 'vet',
+  RECEPTIONIST: 'recepcionista',
+  ASSISTANT: 'asistente',
+  OWNER: 'propietario',
+}
+
+function mapUser(user: BackendUser) {
+  return { id: user.id, nombre: user.name, email: user.email, rol: roleMap[user.role], estado: 'Activo' as const }
+}
 
 const Contexto = createContext<AuthApi | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { usuarios, cuentasDemo } = useDatos()
-  const [id, setId] = useState<number | null>(() => {
-    const guardado = Number(localStorage.getItem(clave_sesion))
-    return Number.isFinite(guardado) && guardado > 0 ? guardado : null
-  })
+  const [user, setUser] = useState<ReturnType<typeof mapUser> | null>(null)
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem(clave_sesion)))
 
-  const user = useMemo(() => usuarios.find((u) => u.id === id) ?? null, [usuarios, id])
+  useEffect(() => {
+    const token = localStorage.getItem(clave_sesion)
+    if (!token) return
+    apiRequest<SessionResponse>('/auth/me', {}, token)
+      .then((session) => setUser(mapUser(session)))
+      .catch(() => localStorage.removeItem(clave_sesion))
+      .finally(() => setLoading(false))
+  }, [])
+
   const perfil = useMemo(() => (user ? rol(user.rol) : null), [user])
 
-  const login = useCallback(
-    (email: string, contrasena: string): ResultadoLogin => {
-      const correo = String(email ?? '').trim().toLowerCase()
-      const clave = String(contrasena ?? '')
-      if (!correo) return { ok: false, error: 'Ingrese su correo electrónico.' }
-      if (!clave) return { ok: false, error: 'Ingrese su contraseña.' }
-
-      const directo = usuarios.find((u) => u.email.toLowerCase() === correo)
-      const porDemo = cuentasDemo[correo]
-      const candidato = directo ?? (porDemo ? usuarios.find((u) => u.id === porDemo) : null)
-
-      if (!candidato) return { ok: false, error: 'No encontramos una cuenta con ese correo.' }
-      if (candidato.estado === 'Inactivo') {
-        return { ok: false, error: 'Esta cuenta está desactivada. Comuníquese con el administrador.' }
-      }
-      if (clave !== '1234') return { ok: false, error: 'Contraseña incorrecta.' }
-
-      setId(candidato.id)
-      localStorage.setItem(clave_sesion, String(candidato.id))
+  const login = useCallback(async (email: string, contrasena: string): Promise<ResultadoLogin> => {
+    const correo = String(email ?? '').trim().toLowerCase()
+    const clave = String(contrasena ?? '')
+    if (!correo) return { ok: false, error: 'Ingrese su correo electrónico.' }
+    if (!clave) return { ok: false, error: 'Ingrese su contraseña.' }
+    try {
+      const response = await apiRequest<LoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: correo, password: clave }),
+      })
+      const candidato = mapUser(response.user)
+      localStorage.setItem(clave_sesion, response.accessToken)
+      setUser(candidato)
       return { ok: true, usuario: candidato }
-    },
-    [usuarios, cuentasDemo],
-  )
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'No se pudo iniciar sesión.' }
+    }
+  }, [])
 
   const logout = useCallback(() => {
-    setId(null)
+    setUser(null)
     localStorage.removeItem(clave_sesion)
   }, [])
 
@@ -52,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, perfil, login, logout],
   )
 
+  if (loading) return null
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>
 }
 

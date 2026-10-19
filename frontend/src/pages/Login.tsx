@@ -1,64 +1,23 @@
-import { useMemo, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { useDatos } from '../data/store'
-import { claves_rol, rol } from '../data/roles'
+import { rol } from '../data/roles'
 import { Button, Input } from '../components/ui'
-import {
-  PawIcon,
-  ShieldIcon,
-  StethoscopeIcon,
-  UserIcon,
-  CalendarIcon,
-} from '../components/icons'
-import type { IconProps } from '../components/icons'
-import type { RolClave } from '../data/types'
 import logo from '../../assets/img/logo.png'
 import foto from '../../assets/img/mas1.webp'
 
-const icono: Record<RolClave, (p: IconProps) => ReactNode> = {
-  admin: ShieldIcon,
-  vet: StethoscopeIcon,
-  recepcionista: CalendarIcon,
-  asistente: UserIcon,
-  propietario: PawIcon,
-}
-
 export default function Login() {
   const { login, user } = useAuth()
-  const { cuentasDemo, usuarios } = useDatos()
   const [email, setEmail] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [error, setError] = useState('')
 
-  const cuentas = useMemo(
-    () =>
-      claves_rol.flatMap((clave) => {
-        const userId = Object.entries(cuentasDemo ?? {}).find(
-          ([, id]) => usuarios.find((u) => u.id === id)?.rol === clave,
-        )?.[1]
-        if (userId == null) return []
-        const correo = Object.entries(cuentasDemo).find(([, id]) => id === userId)?.[0]
-        if (!correo) return []
-        return [{ clave, correo, ...rol(clave), Icono: icono[clave] }]
-      }),
-    [cuentasDemo, usuarios],
-  )
-
   if (user) return <Navigate to={rol(user.rol).home} replace />
 
-  function enviar(e: FormEvent<HTMLFormElement>) {
+  async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const r = login(email, contrasena)
-    if (!r.ok) setError(r.error)
-  }
-
-  function entrarComo(correo: string) {
-    setEmail(correo)
-    setContrasena('1234')
-    setError('')
-    const r = login(correo, '1234')
+    const r = await login(email, contrasena)
     if (!r.ok) setError(r.error)
   }
 
@@ -173,44 +132,6 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-5">
-              <div className="mb-3 flex items-center gap-3">
-                <span className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-                  Accesos de demostración
-                </span>
-                <span className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {cuentas.map(({ clave, correo, label, resumen, color, Icono }, i) => (
-                  <button
-                    key={clave}
-                    type="button"
-                    onClick={() => entrarComo(correo)}
-                    title={`${correo} · ${resumen}`}
-                    className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left transition hover:border-primary-300 hover:bg-primary-50/50 hover:shadow-sm ${
-                      i === cuentas.length - 1 && cuentas.length % 2 === 1 ? 'col-span-2' : ''
-                    }`}
-                  >
-                    <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}
-                      aria-hidden="true"
-                    >
-                      <Icono className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-semibold text-slate-800">{label}</span>
-                      <span className="block truncate text-[10px] text-slate-400">{correo}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
-                Todas usan la contraseña <span className="font-semibold text-slate-600">1234</span>
-              </p>
-            </div>
           </div>
         </div>
       </main>

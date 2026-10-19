@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { RoleKey } from '../generated/prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { AuthenticatedRequest, JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
 
@@ -20,5 +20,11 @@ export class AuthController {
   @Roles(RoleKey.ADMINISTRATOR)
   getAdministratorResource(): { status: 'ok' } {
     return { status: 'ok' };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  currentUser(@Req() request: AuthenticatedRequest) {
+    return this.auth.currentUser(request.user!.sub);
   }
 }

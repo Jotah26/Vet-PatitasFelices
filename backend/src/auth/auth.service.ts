@@ -28,4 +28,12 @@ export class AuthService {
       user: { id: user.id, email: user.email, name: user.name, role },
     };
   }
+
+  async currentUser(userId: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Invalid session.');
+    }
+    return { id: user.id, email: user.email, name: user.name, role: user.role.key };
+  }
 }
