@@ -72,7 +72,7 @@ export default function PortalRecetas() {
             <Bloque
               key={r.id}
               titulo={datos.nombreMascota(r.mascotaId)}
-              descripcion={`${fmtCorto(r.fecha)} · ${datos.nombreVet(r.vetId)}`}
+              descripcion={`${fmtCorto(r.fecha)} · ${r.vetNombre ?? datos.nombreVet(r.vetId)}`}
               accion={<Badge className={estados_receta[r.estado]}>{r.estado}</Badge>}
             >
               <div className="flex flex-col p-5">

@@ -170,6 +170,12 @@ export interface Receta {
   estado: EstadoReceta
   /** La captura el formulario de recetas; la semilla no la trae. */
   indicaciones?: string
+  /** Resolved by owner-scoped API responses when available. */
+  mascotaNombre?: string
+  mascotaRaza?: string
+  mascotaPeso?: string
+  propietarioNombre?: string
+  vetNombre?: string
 }
 
 /** Una receta con los nombres ya resueltos, tal como la imprime el

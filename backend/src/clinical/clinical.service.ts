@@ -122,6 +122,20 @@ export class ClinicalService {
     });
   }
 
+  async listMyPrescriptions(userId: number) {
+    const owner = await this.prisma.owner.findUnique({ where: { userId } });
+    if (!owner) return [];
+    return this.prisma.prescription.findMany({
+      where: { pet: { ownerId: owner.id } },
+      include: {
+        items: true,
+        pet: { select: { id: true, name: true, breed: true, weight: true, owner: { select: { name: true } } } },
+        veterinarian: { select: { id: true, name: true } },
+      },
+      orderBy: [{ issuedAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
   async createPrescription(data: CreatePrescriptionDto) {
     await this.requirePet(this.prisma, data.petId);
     await this.requireActiveVeterinarian(this.prisma, data.veterinarianId);

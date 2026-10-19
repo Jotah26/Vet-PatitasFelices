@@ -427,5 +427,11 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Runtime harness: N/A; no new runtime harness exists for the frontend package.
 - B06.12 commit identity: final `HEAD` (`feat(frontend): migrate veterinary attention registration to API`); immutable hash is reported in the delivery result.
 
+- [x] B06.13 — Migrate owner-portal prescription visibility to an authenticated owner-scoped API read.
+  - Acceptance: `GET /prescriptions/mine` requires JWT authentication and `RoleKey.OWNER`, derives the owner from the authenticated user, filters through `pet.ownerId`, and returns prescription items plus null-safe pet/veterinarian display fields; staff `GET /prescriptions` and `POST /prescriptions` remain unchanged and staff-only. The owner portal hydrates recipes from `/prescriptions/mine`, excludes them from localStorage persistence, preserves Spanish status/printing behavior, and shows the existing synchronization warning on failed reads.
+  - Evidence: owner isolation and staff-write authorization are covered by `test/clinical.e2e-spec.ts`; frontend mapping uses server-provided prescription, pet, owner, veterinarian, and item fields with safe fallbacks. Verification is recorded in the delivery result: focused clinical/auth/reminder tests, full backend tests, frontend/backend lint, and frontend/backend builds.
+  - Commit identity: final `HEAD` is the single Conventional Commit created for B06.13; the immutable hash is reported in the delivery result.
+  - Rollback boundary: revert only the B06.13 commit, or remove the `/prescriptions/mine` controller/service route and focused isolation test, owner prescription API hydration/mapping, owner localStorage exclusion, and this evidence. Preserve staff prescription listing/writes and all B06.1–B06.12 authentication, owner, pet, scheduling, vaccine, service, and clinical attention behavior.
+
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

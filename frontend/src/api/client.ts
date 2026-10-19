@@ -91,7 +91,9 @@ export type BackendPrescription = {
   issuedAt: string
   instructions: string | null
   status: 'ISSUED' | 'DISPENSED'
-  items: { medication: string; dose: string; days: number }[]
+  items?: { medication: string; dose: string; days: number }[] | null
+  pet?: { id: number; name: string; breed: string; weight: string; owner?: { name: string } | null } | null
+  veterinarian?: { id: number; name: string } | null
 }
 
 export type BackendAppointmentRequest = {

@@ -114,12 +114,19 @@ const mapConsultation = (consultation: BackendConsultation): Consulta => ({
 const mapPrescription = (prescription: BackendPrescription): Receta => ({
   id: prescription.id,
   mascotaId: prescription.petId,
-  fecha: prescription.issuedAt.slice(0, 10),
+  fecha: prescription.issuedAt?.slice(0, 10) ?? '',
   vetId: prescription.veterinarianId,
   ...(prescription.consultationId != null ? { consultaId: prescription.consultationId } : {}),
-  items: prescription.items.map((item) => ({ medicamento: item.medication, dosis: item.dose, dias: item.days })),
+  items: (prescription.items ?? []).map((item) => ({ medicamento: item.medication ?? '—', dosis: item.dose ?? '—', dias: item.days ?? 0 })),
   estado: prescription.status === 'DISPENSED' ? 'Dispensada' : 'Emitida',
   ...(prescription.instructions ? { indicaciones: prescription.instructions } : {}),
+  ...(prescription.pet ? {
+    mascotaNombre: prescription.pet.name,
+    mascotaRaza: prescription.pet.breed,
+    mascotaPeso: prescription.pet.weight,
+    propietarioNombre: prescription.pet.owner?.name ?? undefined,
+  } : {}),
+  ...(prescription.veterinarian?.name ? { vetNombre: prescription.veterinarian.name } : {}),
 })
 
 const mapAppointmentRequest = (request: BackendAppointmentRequest): Solicitud => {
@@ -601,6 +608,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ownerPortal = user.rol === 'propietario'
     dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     dispatch({ tipo: 'API_CITAS', datos: [] })
+    if (ownerPortal) dispatch({ tipo: 'API_RECETAS', datos: [] })
     const requestsPath = ownerPortal ? '/appointment-requests' : '/appointment-requests/staff'
     Promise.all([
       ownerPortal ? Promise.resolve([] as BackendOwner[]) : apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
@@ -610,7 +618,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendService[]>('/services', {}, accessToken()),
       apiRequest<BackendVaccine[]>(ownerPortal ? '/vaccines/mine' : '/vaccines', {}, accessToken()),
       ownerPortal ? Promise.resolve([] as BackendConsultation[]) : apiRequest<BackendConsultation[]>('/consultations', {}, accessToken()),
-      ownerPortal ? Promise.resolve([] as BackendPrescription[]) : apiRequest<BackendPrescription[]>('/prescriptions', {}, accessToken()),
+      apiRequest<BackendPrescription[]>(ownerPortal ? '/prescriptions/mine' : '/prescriptions', {}, accessToken()),
     ])
       .then(([owners, pets, requests, appointments, services, vaccines, consultations, prescriptions]) => {
         if (!activo) return
@@ -651,6 +659,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           citas: user?.rol === 'propietario' ? [] : estado.citas,
           vacunas: [],
           solicitudes: [],
+          recetas: user?.rol === 'propietario' ? [] : estado.recetas,
         }),
       )
     } catch {
@@ -719,11 +728,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return {
           codigo: `REC-${String(receta.id).padStart(3, '0')}`,
           fecha: receta.fecha,
-          mascota: paciente?.nombre ?? '—',
-          propietario: duenioDe(receta.mascotaId)?.nombre ?? '—',
-          raza: paciente?.raza ?? '—',
-          peso: paciente?.peso ?? '—',
-          vet: usuario(receta.vetId)?.nombre ?? '—',
+          mascota: receta.mascotaNombre ?? paciente?.nombre ?? '—',
+          propietario: receta.propietarioNombre ?? duenioDe(receta.mascotaId)?.nombre ?? '—',
+          raza: receta.mascotaRaza ?? paciente?.raza ?? '—',
+          peso: receta.mascotaPeso ?? paciente?.peso ?? '—',
+          vet: receta.vetNombre ?? usuario(receta.vetId)?.nombre ?? '—',
           items: receta.items,
         }
       },

@@ -20,7 +20,7 @@ describe('Clinical care vertical', () => {
   let nextPrescriptionId = 1;
 
   beforeAll(async () => {
-    const pets = new Map([[1, { id: 1, ownerId: 1 }]]);
+    const pets = new Map([[1, { id: 1, ownerId: 1 }], [2, { id: 2, ownerId: 2 }]]);
     const transaction = {
       pet: { findUnique: jest.fn(({ where }: { where: { id: number } }) => pets.get(where.id) ?? null) },
       owner: {
@@ -67,8 +67,11 @@ describe('Clinical care vertical', () => {
         }),
       },
       prescription: {
-        findMany: jest.fn(({ where }: { where?: { petId?: number } } = {}) =>
-          [...prescriptions.values()].filter((item) => where?.petId === undefined || item.petId === where.petId),
+        findMany: jest.fn(({ where }: { where?: { petId?: number; pet?: { ownerId: number } } } = {}) =>
+          [...prescriptions.values()].filter((item) =>
+            (where?.petId === undefined || item.petId === where.petId) &&
+            (where?.pet?.ownerId === undefined || pets.get(item.petId as number)?.ownerId === where.pet.ownerId),
+          ),
         ),
         findUnique: jest.fn(({ where }: { where: { id: number } }) => prescriptions.get(where.id) ?? null),
         create: jest.fn(({ data }: { data: MockCreateData }) => {
@@ -147,5 +150,16 @@ describe('Clinical care vertical', () => {
     });
     await asOwner(request(app.getHttpServer()).post('/vaccines')).send({ petId: 1, name: 'Flu' }).expect(403);
     await asStaff(request(app.getHttpServer()).delete('/vaccines/20')).expect(200);
+  });
+
+  it('isolates owner prescription reads and keeps prescription writes staff-only', async () => {
+    prescriptions.set(30, { id: 30, petId: 1, veterinarianId: 3, items: [{ medication: 'Vitamin', dose: '1 tablet', days: 7 }] });
+    prescriptions.set(31, { id: 31, petId: 2, veterinarianId: 3, items: [] });
+    await asOwner(request(app.getHttpServer()).get('/prescriptions')).expect(403);
+    await asOwner(request(app.getHttpServer()).get('/prescriptions/mine')).expect(200).then((response) => {
+      expect(response.body).toEqual(expect.arrayContaining([expect.objectContaining({ id: 30 })]));
+      expect(response.body).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 31 })]));
+    });
+    await asOwner(request(app.getHttpServer()).post('/prescriptions')).send({ petId: 1 }).expect(403);
   });
 });
