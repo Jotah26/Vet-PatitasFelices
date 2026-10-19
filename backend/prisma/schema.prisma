@@ -76,6 +76,18 @@ enum MedicationCategory {
   VACCINE      @map("Vacuna")
 }
 
+enum PaymentMethod {
+  YAPE        @map("Yape")
+  CASH        @map("Efectivo")
+  CARD        @map("Tarjeta")
+  TRANSFER    @map("Transferencia")
+}
+
+enum PaymentStatus {
+  ACTIVE  @map("Activo")
+  VOIDED  @map("Anulado")
+}
+
 model Role {
   id        Int      @id @default(autoincrement())
   key       RoleKey  @unique
@@ -162,6 +174,7 @@ model Appointment {
   pet             Pet                 @relation(fields: [petId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   veterinarian    User                @relation("AppointmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   resolvedRequest AppointmentRequest?
+  payments        Payment[]
 
   @@index([petId])
   @@index([veterinarianId])
@@ -290,6 +303,24 @@ model Service {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("services")
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  appointmentId Int?          @map("appointment_id")
+  paidAt        DateTime      @default(now()) @map("paid_at")
+  method        PaymentMethod
+  amount        Float
+  reference     String?
+  status        PaymentStatus @default(ACTIVE)
+  voidedAt      DateTime?     @map("voided_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([appointmentId])
+  @@index([paidAt])
+  @@map("payments")
 }
 
 model AppointmentRequest {

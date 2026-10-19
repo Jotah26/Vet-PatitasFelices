@@ -70,7 +70,7 @@ The current React application stores veterinary, clinical, inventory, and sessio
     - Route: delegated; stock rules and service catalog span multiple modules.
     - Acceptance: staff can manage stock and catalog with validated movements.
     - Checks: focused Jest e2e tests.
-  - [ ] B05.4 — Add payment endpoints for cash-desk charges.
+  - [x] B05.4 — Add payment endpoints for cash-desk charges.
     - Route: delegated; charge integrity and method validation span multiple modules.
     - Acceptance: staff can register and read payments with validated methods and amounts.
     - Checks: focused Jest e2e tests.
@@ -249,5 +249,21 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - PostgreSQL verification: `npx prisma db execute --file test/inventory-persistence.integration.sql` — passed and rolled back; confirmed the medications and services tables plus medication-category enum labels.
 - B05.3 rollback boundary: revert migration `20261006020000_add_inventory` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/medications/`, `backend/src/services/`, their imports from `backend/src/app.module.ts`, the `Medication` and `Service` schema models, `backend/test/inventory.e2e-spec.ts`, `backend/test/inventory-persistence.integration.sql`, and this B05.3 evidence. B01–B05.2 behavior remains independent.
 
+- B05.4 adds `Payment` persistence with validated methods (`Yape`, `Efectivo`, `Tarjeta`, `Transferencia`) and explicit `ACTIVE`/`VOIDED` status. Staff-only `/payments` endpoints register payments linked to existing appointments, list active payments, read individual records, and void payments without deleting financial history; repeated voiding returns `409`.
+- B05.4 migration `20261006030000_add_payments` is forward-only and was deployed to local PostgreSQL.
+- TDD evidence for B05.4:
+  - RED: `npm test -- --runInBand test/payments.e2e-spec.ts` failed before implementation (1 suite failed; 3 tests failed) because `/payments` returned `404` rather than the expected protected lifecycle responses.
+  - GREEN: after adding the payments module, DTO, controller, and service, the focused command passed (1 suite, 3 tests), covering authentication/role boundaries, registration/listing/voiding, amount and method validation, and appointment existence.
+  - REFACTOR: no behavior refactor was warranted; the final code passed the focused suite and all quality checks.
+- Observed B05.4 checks:
+  - Focused Jest e2e tests: `npm test -- --runInBand test/payments.e2e-spec.ts` — passed (1 suite, 3 tests).
+  - All backend tests: `npm test -- --runInBand` — passed (11 suites, 30 tests).
+  - Backend lint: `npm run lint` — passed with no output.
+  - Backend build: `npm run build` — passed with no output.
+  - Prisma validation: `npm run prisma:validate` — passed; schema valid.
+  - Migration status: `npx prisma migrate status` — database schema is up to date (7 migrations).
+  - PostgreSQL verification: `npx prisma db execute --file test/payments-persistence.integration.sql` — passed and rolled back; confirmed the payments table, appointment foreign key, and payment-status enum.
+- B05.4 rollback boundary: revert migration `20261006030000_add_payments` only in a fresh database or through a compensating migration in an already deployed database; remove `backend/src/payments/`, its import from `backend/src/app.module.ts`, the `Payment` schema model and relations, `backend/test/payments.e2e-spec.ts`, `backend/test/payments-persistence.integration.sql`, and this B05.4 evidence. B01–B05.3 behavior remains independent.
+
 ## Next step
-Continue with B05.4.
+Continue with B05.5.
