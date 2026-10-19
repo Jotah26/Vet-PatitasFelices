@@ -30,5 +30,10 @@ export class CreateVaccineDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  administeredAt?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
   nextDueAt?: Date;
 }

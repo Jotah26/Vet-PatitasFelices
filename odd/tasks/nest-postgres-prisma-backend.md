@@ -104,7 +104,12 @@ The current React application stores veterinary, clinical, inventory, and sessio
       - Acceptance: authenticated staff hydrate services from `GET /services`; staff create, update, and delete through the corresponding API endpoints; owner sessions can read services for portal display but cannot write; appointment service IDs remain persisted and mapped to the existing frontend shape; failed mutations do not update local state or report success.
       - Evidence: frontend lint/build; backend service, auth, appointment, lint, and build checks recorded below.
       - Commit: recorded in the delivery evidence after verification.
-      - Rollback boundary: revert the B06.10 commit, including service hydration/mutations, the appointment service relation migration, and this checklist evidence; do not revert unrelated owner, pet, appointment-request, or auth work.
+       - Rollback boundary: revert the B06.10 commit, including service hydration/mutations, the appointment service relation migration, and this checklist evidence; do not revert unrelated owner, pet, appointment-request, or auth work.
+    - [x] B06.11 — Migrate staff and owner vaccine visibility to authenticated API persistence.
+      - Acceptance: staff hydrate vaccines from `/vaccines` and create/delete through staff-only endpoints; owners read only their pets' vaccines through `/vaccines/mine`; reminder/date computation and Spanish UI remain intact; failed mutations do not update local state or report success.
+      - Evidence: recorded below after verification.
+      - Commit: `0ebe8f0` (`feat(vaccines): persist staff records and owner visibility`).
+      - Rollback boundary: revert the B06.11 commit, including vaccine API hydration/mutations, owner-scoped vaccine reads, focused isolation tests, and this checklist evidence; do not revert unrelated clinical, reminder, owner, pet, appointment, or auth work.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.
@@ -223,6 +228,11 @@ The current React application stores veterinary, clinical, inventory, and sessio
   - Prisma validation: `npm run prisma:validate` — passed; schema valid.
   - PostgreSQL integration: `npm run test:appointment-persistence` — passed; script executed successfully.
 - B04.4 rollback boundary: remove `backend/src/appointment-requests/`, its import from `backend/src/app.module.ts`, `backend/test/appointment-requests.e2e-spec.ts`, and this B04.4 evidence. B01–B04.3 behavior and persistence remain independent.
+
+- B06.11 adds owner-scoped vaccine reads at `GET /vaccines/mine`, deriving the owner from the authenticated JWT subject and filtering through `pet.ownerId`. Vaccine writes remain staff-only at `POST /vaccines` and `DELETE /vaccines/:id`.
+- B06.11 frontend hydration uses `/vaccines` for staff and `/vaccines/mine` for owners. Vaccine seed/localStorage state is cleared from the authenticated provider snapshot; successful API responses alone update the local view, preserving existing Spanish reminder/status computation.
+- B06.11 focused evidence: `npm test -- --runInBand test/auth.e2e-spec.ts test/reminders.e2e-spec.ts test/clinical.e2e-spec.ts` — passed (3 suites, 8 tests), including owner isolation and staff CRUD authorization. `npm run lint` and `npm run build` in `backend/` — passed. `npm run lint` in `frontend/` — passed with 2 pre-existing hook-dependency warnings (`Citas.tsx`, `Vacunas.tsx`) and no errors. `npm run build` in `frontend/` — passed. Full backend `npm test -- --runInBand` — 12 suites passed, 1 unrelated pre-existing inventory authorization assertion failed (`test/inventory.e2e-spec.ts:127`, owner `GET /services` returned 200 instead of 403).
+- B06.11 commit: `0ebe8f0` (`feat(vaccines): persist staff records and owner visibility`).
 
 - B05.1 adds clinical persistence (`Consultation`, `Vaccine`, `Prescription`, `PrescriptionItem`) with restrictive foreign keys, plus staff-only endpoints: `POST /clinical/attentions` registers consultation, vaccines, and prescription atomically in one transaction; `GET /consultations`, `GET /vaccines`, and `GET /prescriptions` support optional `petId` filtering; standalone `POST /vaccines` and `POST /prescriptions` validate pet, veterinarian, and consultation references.
 - B05.1 migration `20261006000000_add_clinical_care` is forward-only and was deployed to local PostgreSQL; attachments, stock movements, payments, and reminders stay out of scope for B05.2–B05.5.

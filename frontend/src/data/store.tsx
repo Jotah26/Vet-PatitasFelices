@@ -4,7 +4,7 @@ import { crearSemilla } from './semilla'
 import { hoy, d, diffDias, horaActual, sumarDias } from './fechas'
 import { useToast } from '../components/Toast'
 import { accessToken, apiRequest } from '../api/client'
-import type { BackendAppointment, BackendAppointmentRequest, BackendOwner, BackendPet, BackendService } from '../api/client'
+import type { BackendAppointment, BackendAppointmentRequest, BackendOwner, BackendPet, BackendService, BackendVaccine } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type {
   Accion,
@@ -76,6 +76,17 @@ const mapService = (service: BackendService): Servicio => ({
   precio: Number(service.price),
   duracion: service.durationMinutes,
   activo: service.active,
+})
+
+const dateOnly = (value: string | null) => value ? value.slice(0, 10) : ''
+const mapVaccine = (vaccine: BackendVaccine): Vacuna => ({
+  id: vaccine.id,
+  mascotaId: vaccine.petId,
+  nombre: vaccine.name,
+  fecha: dateOnly(vaccine.administeredAt),
+  proxima: dateOnly(vaccine.nextDueAt) || sumarDias(dateOnly(vaccine.administeredAt), dias_vacuna[vaccine.name] ?? 365),
+  ...(vaccine.administeredById != null ? { aplicadaPorId: vaccine.administeredById } : {}),
+  ...(vaccine.batch ? { lote: vaccine.batch } : {}),
 })
 
 const mapAppointmentRequest = (request: BackendAppointmentRequest): Solicitud => {
@@ -183,9 +194,9 @@ function cargar(): Estado {
     if (!enviados || typeof enviados !== 'object' || Array.isArray(enviados)) {
       migrado.recordatoriosEnviados = {}
     }
-    return { ...migrado, tarifario: [] }
+    return { ...migrado, tarifario: [], vacunas: [] }
   } catch {
-    return { ...crearSemilla(), tarifario: [] }
+    return { ...crearSemilla(), tarifario: [], vacunas: [] }
   }
 }
 
@@ -199,6 +210,8 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, solicitudes: accion.datos }
     case 'API_SERVICIOS':
       return { ...estado, tarifario: accion.datos }
+    case 'API_VACUNAS':
+      return { ...estado, vacunas: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
     case 'API_SOLICITUD_ACTUALIZAR':
@@ -558,8 +571,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       apiRequest<BackendAppointmentRequest[]>(requestsPath, {}, accessToken()),
       apiRequest<BackendAppointment[]>(ownerPortal ? '/appointments/mine' : '/appointments', {}, accessToken()),
       apiRequest<BackendService[]>('/services', {}, accessToken()),
+      apiRequest<BackendVaccine[]>(ownerPortal ? '/vaccines/mine' : '/vaccines', {}, accessToken()),
     ])
-      .then(([owners, pets, requests, appointments, services]) => {
+      .then(([owners, pets, requests, appointments, services, vaccines]) => {
         if (!activo) return
         dispatch({
           tipo: 'API_PROPIETARIOS_MASCOTAS',
@@ -571,6 +585,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         dispatch({ tipo: 'API_SOLICITUDES', datos: requests.map(mapAppointmentRequest) })
         dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
         dispatch({ tipo: 'API_SERVICIOS', datos: services.map(mapService) })
+        dispatch({ tipo: 'API_VACUNAS', datos: vaccines.map(mapVaccine) })
       })
       .catch((error) => toast({
         tipo: 'aviso',
@@ -593,7 +608,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           propietarios: [],
           mascotas: [],
           citas: user?.rol === 'propietario' ? [] : estado.citas,
-           solicitudes: [],
+          vacunas: [],
+          solicitudes: [],
         }),
       )
     } catch {
@@ -804,8 +820,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       eliminarMedicamento: (id) => dispatch({ tipo: 'MEDICAMENTO_ELIMINAR', datos: { id } }),
       reponerMedicamento: (id, cantidad) => dispatch({ tipo: 'MEDICAMENTO_REPONER', datos: { id, cantidad } }),
 
-      registrarVacuna: (payload) => dispatch({ tipo: 'VACUNA_CREAR', datos: payload }),
-      eliminarVacuna: (id) => dispatch({ tipo: 'VACUNA_ELIMINAR', datos: { id } }),
+      registrarVacuna: async (payload) => {
+        const vaccine = await apiRequest<BackendVaccine>('/vaccines', {
+          method: 'POST',
+          body: JSON.stringify({
+            petId: payload.mascotaId,
+            name: payload.nombre,
+            batch: payload.lote || undefined,
+            nextDueAt: payload.proxima ? new Date(`${payload.proxima}T00:00:00`).toISOString() : undefined,
+            ...(payload.aplicadaPorId != null ? { administeredById: payload.aplicadaPorId } : {}),
+            ...(payload.fecha ? { administeredAt: new Date(`${payload.fecha}T00:00:00`).toISOString() } : {}),
+          }),
+        }, accessToken())
+        dispatch({ tipo: 'API_VACUNAS', datos: [...estado.vacunas, mapVaccine(vaccine)] })
+      },
+      eliminarVacuna: async (id) => {
+        await apiRequest<null>(`/vaccines/${id}`, { method: 'DELETE' }, accessToken())
+        dispatch({ tipo: 'API_VACUNAS', datos: estado.vacunas.filter((vaccine) => vaccine.id !== id) })
+      },
 
       crearReceta: (payload) => dispatch({ tipo: 'RECETA_CREAR', datos: payload }),
       marcarReceta: (id, estadoReceta) => dispatch({ tipo: 'RECETA_ESTADO', datos: { id, estado: estadoReceta } }),

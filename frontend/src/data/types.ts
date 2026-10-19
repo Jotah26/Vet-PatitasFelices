@@ -354,6 +354,7 @@ export type Accion =
   | { tipo: 'API_CITAS'; datos: Cita[] }
   | { tipo: 'API_SOLICITUDES'; datos: Solicitud[] }
   | { tipo: 'API_SERVICIOS'; datos: Servicio[] }
+  | { tipo: 'API_VACUNAS'; datos: Vacuna[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
   | { tipo: 'API_SOLICITUD_ACTUALIZAR'; datos: Solicitud }
 
@@ -420,8 +421,8 @@ export interface DatosApi extends Estado {
   actualizarMedicamento: (id: number, cambios: Partial<Medicamento>) => void
   eliminarMedicamento: (id: number) => void
   reponerMedicamento: (id: number, cantidad: number) => void
-  registrarVacuna: (payload: NuevaVacuna) => void
-  eliminarVacuna: (id: number) => void
+  registrarVacuna: (payload: NuevaVacuna) => Promise<void>
+  eliminarVacuna: (id: number) => Promise<void>
   crearReceta: (payload: NuevaReceta) => void
   marcarReceta: (id: number, estado: EstadoReceta) => void
   eliminarReceta: (id: number) => void

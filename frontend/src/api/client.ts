@@ -61,6 +61,16 @@ export type BackendService = {
   active: boolean
 }
 
+export type BackendVaccine = {
+  id: number
+  petId: number
+  name: string
+  administeredAt: string
+  nextDueAt: string | null
+  administeredById: number | null
+  batch: string | null
+}
+
 export type BackendAppointmentRequest = {
   id: number
   ownerId: number

@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { AuthenticatedRequest, JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RoleKey } from '../generated/prisma/client';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { STAFF_ROLES } from '../auth/staff-roles';
@@ -18,8 +19,19 @@ export class VaccinesController {
     return this.clinical.listVaccines(petId);
   }
 
+  @Get('mine')
+  @Roles(RoleKey.OWNER)
+  findMine(@Req() request: AuthenticatedRequest) {
+    return this.clinical.listMyVaccines(request.user!.sub);
+  }
+
   @Post()
   create(@Body() data: CreateVaccineDto) {
     return this.clinical.createVaccine(data);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.clinical.removeVaccine(id);
   }
 }

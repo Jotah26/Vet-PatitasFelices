@@ -82,6 +82,15 @@ export class ClinicalService {
     return this.prisma.vaccine.findMany({ where: petId === undefined ? undefined : { petId } });
   }
 
+  async listMyVaccines(userId: number) {
+    const owner = await this.prisma.owner.findUnique({ where: { userId } });
+    if (!owner) return [];
+    return this.prisma.vaccine.findMany({
+      where: { pet: { ownerId: owner.id } },
+      orderBy: [{ nextDueAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   async createVaccine(data: CreateVaccineDto) {
     await this.requirePet(this.prisma, data.petId);
     if (data.consultationId !== undefined) {
@@ -92,6 +101,14 @@ export class ClinicalService {
     }
     try {
       return await this.prisma.vaccine.create({ data });
+    } catch (error: unknown) {
+      throw this.translateError(error);
+    }
+  }
+
+  async removeVaccine(id: number) {
+    try {
+      await this.prisma.vaccine.delete({ where: { id } });
     } catch (error: unknown) {
       throw this.translateError(error);
     }

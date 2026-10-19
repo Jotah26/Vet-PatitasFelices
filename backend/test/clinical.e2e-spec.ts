@@ -23,6 +23,9 @@ describe('Clinical care vertical', () => {
     const pets = new Map([[1, { id: 1, ownerId: 1 }]]);
     const transaction = {
       pet: { findUnique: jest.fn(({ where }: { where: { id: number } }) => pets.get(where.id) ?? null) },
+      owner: {
+        findUnique: jest.fn(({ where }: { where: { userId: number } }) => where.userId === 10 ? { id: 1 } : null),
+      },
       user: {
         findUnique: jest.fn(({ where }: { where: { id: number } }) =>
           where.id === 3
@@ -44,13 +47,22 @@ describe('Clinical care vertical', () => {
         }),
       },
       vaccine: {
-        findMany: jest.fn(({ where }: { where?: { petId?: number } } = {}) =>
-          [...vaccines.values()].filter((item) => where?.petId === undefined || item.petId === where.petId),
+        findMany: jest.fn(({ where }: { where?: { petId?: number; pet?: { ownerId: number } } } = {}) =>
+          [...vaccines.values()].filter((item) =>
+            (where?.petId === undefined || item.petId === where.petId) &&
+            (where?.pet?.ownerId === undefined || item.ownerId === where.pet.ownerId),
+          ),
         ),
         findUnique: jest.fn(({ where }: { where: { id: number } }) => vaccines.get(where.id) ?? null),
         create: jest.fn(({ data }: { data: MockCreateData }) => {
           const item = { id: nextVaccineId++, ...data };
           vaccines.set(item.id, item);
+          return item;
+        }),
+        delete: jest.fn(({ where }: { where: { id: number } }) => {
+          const item = vaccines.get(where.id);
+          if (!item) throw { code: 'P2025' };
+          vaccines.delete(where.id);
           return item;
         }),
       },
@@ -123,5 +135,17 @@ describe('Clinical care vertical', () => {
     await asStaff(request(app.getHttpServer()).post('/clinical/attentions')).send(attention({ petId: 99 })).expect(404);
     await asStaff(request(app.getHttpServer()).post('/clinical/attentions')).send(attention({ veterinarianId: 9 })).expect(400);
     await asStaff(request(app.getHttpServer()).post('/clinical/attentions')).send(attention({ veterinarianId: 99 })).expect(400);
+  });
+
+  it('isolates owner vaccine reads and restricts vaccine writes to staff', async () => {
+    vaccines.set(20, { id: 20, petId: 1, ownerId: 1, name: 'Rabies' });
+    vaccines.set(21, { id: 21, petId: 2, ownerId: 2, name: 'Distemper' });
+    await asOwner(request(app.getHttpServer()).get('/vaccines')).expect(403);
+    await asOwner(request(app.getHttpServer()).get('/vaccines/mine')).expect(200).then((response) => {
+      expect(response.body).toEqual([expect.objectContaining({ id: 20 })]);
+      expect(response.body).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 21 })]));
+    });
+    await asOwner(request(app.getHttpServer()).post('/vaccines')).send({ petId: 1, name: 'Flu' }).expect(403);
+    await asStaff(request(app.getHttpServer()).delete('/vaccines/20')).expect(200);
   });
 });
