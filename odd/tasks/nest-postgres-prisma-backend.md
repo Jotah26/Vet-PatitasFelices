@@ -371,5 +371,12 @@ The current React application stores veterinary, clinical, inventory, and sessio
 - B06.7 commit identity: final `HEAD` is the single Conventional Commit created for this work unit; the exact immutable hash is reported by `git rev-parse HEAD` in the delivery result.
 - B06.7 rollback boundary: revert only the B06.7 commit, or remove the `/appointments/mine` controller/service method and focused test, the frontend appointment API type/mapping/hydration action, owner-only localStorage exclusion, and this evidence. Preserve staff `/appointments`, appointment-request behavior, and all B06.1–B06.6 authentication, owner, pet, and request migrations.
 
+- [x] B06.8 — Migrate staff appointment-request listing and resolution to the authenticated API.
+  - Acceptance: staff sessions load requests from `GET /appointment-requests/staff`; acceptance calls `POST /appointment-requests/:id/accept` with the selected veterinarian ID; rejection calls `POST /appointment-requests/:id/reject` with the reason; local state and success toasts change only after successful responses; API errors are surfaced; owner request mapping, owner-only routes, and backend role guards remain unchanged.
+  - Verification: backend appointment-request and auth tests, backend lint/build, frontend lint/build; frontend has no test runner, so typed build validation is the focused frontend check.
+  - Evidence: `frontend/src/data/store.tsx` uses the staff endpoint and server-response mapping for resolution; `Solicitudes.tsx` and `VistaRecepcion.tsx` await mutations and report failures without false success; existing `backend/test/appointment-requests.e2e-spec.ts` covers staff role boundaries and accept/reject lifecycle.
+  - Commit identity: the single Conventional Commit created for B06.8; immutable hash recorded in the delivery result.
+  - Rollback boundary: revert only the B06.8 commit, or remove staff request hydration/resolution API calls and async dashboard handling in `frontend/src/data/store.tsx`, `frontend/src/pages/Solicitudes.tsx`, and `frontend/src/pages/dashboard/VistaRecepcion.tsx`, plus this evidence. Preserve B06.1–B06.7 authentication, owner request behavior, owner appointments, and backend guards.
+
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

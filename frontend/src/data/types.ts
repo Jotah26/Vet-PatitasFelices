@@ -354,6 +354,7 @@ export type Accion =
   | { tipo: 'API_CITAS'; datos: Cita[] }
   | { tipo: 'API_SOLICITUDES'; datos: Solicitud[] }
   | { tipo: 'API_SOLICITUD_CREAR'; datos: Solicitud }
+  | { tipo: 'API_SOLICITUD_ACTUALIZAR'; datos: Solicitud }
 
 /* ---------- API del store ---------- */
 
@@ -400,8 +401,8 @@ export interface DatosApi extends Estado {
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void
   cancelarCita: (id: number) => void
   solicitarCita: (payload: NuevaSolicitud) => Promise<void>
-  aceptarSolicitud: (id: number, vetId: number) => void
-  rechazarSolicitud: (id: number, motivo: string) => void
+  aceptarSolicitud: (id: number, vetId: number) => Promise<void>
+  rechazarSolicitud: (id: number, motivo: string) => Promise<void>
   crearMascota: (payload: Omit<Mascota, 'id'>) => Promise<void>
   actualizarMascota: (id: number, cambios: Partial<Mascota>) => Promise<void>
   eliminarMascota: (id: number) => Promise<void>

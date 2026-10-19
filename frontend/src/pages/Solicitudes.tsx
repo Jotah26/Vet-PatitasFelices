@@ -26,6 +26,7 @@ export default function Solicitudes() {
   const [vetId, setVetId] = useState('')
   const [rechazando, setRechazando] = useState<Solicitud | null>(null)
   const [motivo, setMotivo] = useState('')
+  const [procesandoId, setProcesandoId] = useState<number | null>(null)
   const consulta = useDebounce(texto, 200)
 
   const veterinarios = datos.usuarios.filter((u) => u.rol === 'vet' && u.estado === 'Activo')
@@ -60,26 +61,41 @@ export default function Solicitudes() {
 
   const vetElegido = Number(vetId) || veterinarios[0]?.id
 
-  function aceptar(s: Solicitud, vet: number | undefined) {
+  async function aceptar(s: Solicitud, vet: number | undefined) {
     if (!vet) return
-    datos.aceptarSolicitud(s.id, vet)
-    toast({
-      titulo: 'Cita confirmada',
-      detalle: `${datos.nombreMascota(s.mascotaId)} quedó agendado el ${fmtCorto(s.fecha)} a las ${s.hora}.`,
-      tipo: 'exito',
-    })
+    setProcesandoId(s.id)
+    try {
+      await datos.aceptarSolicitud(s.id, vet)
+      toast({
+        titulo: 'Cita confirmada',
+        detalle: `${datos.nombreMascota(s.mascotaId)} quedó agendado el ${fmtCorto(s.fecha)} a las ${s.hora}.`,
+        tipo: 'exito',
+      })
+    } catch (error) {
+      toast({ titulo: 'No se pudo confirmar', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    } finally {
+      setProcesandoId(null)
+    }
   }
 
-  function confirmarRechazo() {
+  async function confirmarRechazo() {
     if (!rechazando || !motivo.trim()) return
-    datos.rechazarSolicitud(rechazando.id, motivo.trim())
-    toast({
-      titulo: 'Solicitud rechazada',
-      detalle: 'El propietario ya puede leer el motivo en su portal.',
-      tipo: 'info',
-    })
-    setRechazando(null)
-    setMotivo('')
+    const solicitud = rechazando
+    setProcesandoId(solicitud.id)
+    try {
+      await datos.rechazarSolicitud(solicitud.id, motivo.trim())
+      toast({
+        titulo: 'Solicitud rechazada',
+        detalle: 'El propietario ya puede leer el motivo en su portal.',
+        tipo: 'info',
+      })
+      setRechazando(null)
+      setMotivo('')
+    } catch (error) {
+      toast({ titulo: 'No se pudo rechazar', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    } finally {
+      setProcesandoId(null)
+    }
   }
 
   return (
@@ -202,8 +218,8 @@ export default function Solicitudes() {
                       <Button
                         size="sm"
                         className="ml-auto"
-                        disabled={!vetElegido}
-                        onClick={() => aceptar(s, vetElegido)}
+                        disabled={!vetElegido || procesandoId === s.id}
+                        onClick={() => void aceptar(s, vetElegido)}
                       >
                         <CheckIcon className="h-4 w-4" /> Confirmar cita
                       </Button>
@@ -235,7 +251,7 @@ export default function Solicitudes() {
             <Button variant="secondary" onClick={() => setRechazando(null)}>
               Volver
             </Button>
-            <Button variant="peligro" onClick={confirmarRechazo} disabled={!motivo.trim()}>
+            <Button variant="peligro" onClick={() => void confirmarRechazo()} disabled={!motivo.trim() || procesandoId === rechazando?.id}>
               Rechazar
             </Button>
           </>

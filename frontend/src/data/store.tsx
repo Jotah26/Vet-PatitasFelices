@@ -190,6 +190,13 @@ function reducer(estado: Estado, accion: Accion): Estado {
       return { ...estado, solicitudes: accion.datos }
     case 'API_SOLICITUD_CREAR':
       return { ...estado, solicitudes: [...estado.solicitudes, accion.datos] }
+    case 'API_SOLICITUD_ACTUALIZAR':
+      return {
+        ...estado,
+        solicitudes: estado.solicitudes.map((solicitud) =>
+          solicitud.id === accion.datos.id ? accion.datos : solicitud,
+        ),
+      }
     /* ---------- Usuarios ---------- */
     case 'USUARIO_CREAR':
       return {
@@ -531,14 +538,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     let activo = true
     const ownerPortal = user.rol === 'propietario'
+    dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
     if (ownerPortal) {
-      dispatch({ tipo: 'API_SOLICITUDES', datos: [] })
       dispatch({ tipo: 'API_CITAS', datos: [] })
     }
+    const requestsPath = ownerPortal ? '/appointment-requests' : '/appointment-requests/staff'
     Promise.all([
       ownerPortal ? Promise.resolve([] as BackendOwner[]) : apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
       apiRequest<BackendPet[]>(ownerPortal ? '/pets/mine' : '/pets', {}, accessToken()),
-      ownerPortal ? apiRequest<BackendAppointmentRequest[]>('/appointment-requests', {}, accessToken()) : Promise.resolve(null),
+      apiRequest<BackendAppointmentRequest[]>(requestsPath, {}, accessToken()),
       ownerPortal ? apiRequest<BackendAppointment[]>('/appointments/mine', {}, accessToken()) : Promise.resolve(null),
     ])
       .then(([owners, pets, requests, appointments]) => {
@@ -550,10 +558,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
             mascotas: pets.map(mapPet),
           },
         })
-        if (requests) dispatch({ tipo: 'API_SOLICITUDES', datos: requests.map(mapAppointmentRequest) })
+        dispatch({ tipo: 'API_SOLICITUDES', datos: requests.map(mapAppointmentRequest) })
         if (appointments) dispatch({ tipo: 'API_CITAS', datos: appointments.map(mapAppointment) })
       })
-      .catch(() => toast({ tipo: 'aviso', titulo: 'Datos no sincronizados', detalle: 'No se pudieron cargar propietarios y mascotas desde el backend.' }))
+      .catch((error) => toast({
+        tipo: 'aviso',
+        titulo: 'Datos no sincronizados',
+        detalle: error instanceof Error ? error.message : 'No se pudieron cargar los datos desde el backend.',
+      }))
     return () => { activo = false }
   }, [toast, user])
 
@@ -570,7 +582,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           propietarios: [],
           mascotas: [],
           citas: user?.rol === 'propietario' ? [] : estado.citas,
-          solicitudes: user?.rol === 'propietario' ? [] : estado.solicitudes,
+           solicitudes: [],
         }),
       )
     } catch {
@@ -666,8 +678,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }, accessToken())
         dispatch({ tipo: 'API_SOLICITUD_CREAR', datos: mapAppointmentRequest(request) })
       },
-      aceptarSolicitud: (id, vetId) => dispatch({ tipo: 'SOLICITUD_ACEPTAR', datos: { id, vetId } }),
-      rechazarSolicitud: (id, motivo) => dispatch({ tipo: 'SOLICITUD_RECHAZAR', datos: { id, motivo } }),
+      aceptarSolicitud: async (id, vetId) => {
+        const request = await apiRequest<BackendAppointmentRequest>(`/appointment-requests/${id}/accept`, {
+          method: 'POST',
+          body: JSON.stringify({ veterinarianId: vetId }),
+        }, accessToken())
+        dispatch({ tipo: 'API_SOLICITUD_ACTUALIZAR', datos: mapAppointmentRequest(request) })
+      },
+      rechazarSolicitud: async (id, motivo) => {
+        const request = await apiRequest<BackendAppointmentRequest>(`/appointment-requests/${id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ rejectionReason: motivo }),
+        }, accessToken())
+        dispatch({ tipo: 'API_SOLICITUD_ACTUALIZAR', datos: mapAppointmentRequest(request) })
+      },
 
       crearMascota: async (payload) => {
         const ownerPortal = user?.rol === 'propietario'

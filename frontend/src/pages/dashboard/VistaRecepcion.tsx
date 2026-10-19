@@ -12,6 +12,7 @@ export default function VistaRecepcion() {
   const datos = useDatos()
   const { toast } = useToast()
   const [vetId, setVetId] = useState('')
+  const [procesandoId, setProcesandoId] = useState<number | null>(null)
 
   const { pendientes, hoy: citasHoy, porCobrar, pacientesMes, vets } = useMemo(() => {
     const lista = datos.solicitudes
@@ -27,22 +28,38 @@ export default function VistaRecepcion() {
     }
   }, [datos])
 
-  function aceptar(s: Solicitud) {
-    datos.aceptarSolicitud(s.id, vetId ? Number(vetId) : 2)
-    toast({
-      titulo: 'Solicitud confirmada',
-      detalle: `${datos.nombreMascota(s.mascotaId)} quedó agendado para el ${fmtCorto(s.fecha)} a las ${s.hora}.`,
-      tipo: 'exito',
-    })
+  async function aceptar(s: Solicitud) {
+    const veterinarianId = vetId ? Number(vetId) : vets[0]?.id
+    if (!veterinarianId) return
+    setProcesandoId(s.id)
+    try {
+      await datos.aceptarSolicitud(s.id, veterinarianId)
+      toast({
+        titulo: 'Solicitud confirmada',
+        detalle: `${datos.nombreMascota(s.mascotaId)} quedó agendado para el ${fmtCorto(s.fecha)} a las ${s.hora}.`,
+        tipo: 'exito',
+      })
+    } catch (error) {
+      toast({ titulo: 'No se pudo confirmar', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    } finally {
+      setProcesandoId(null)
+    }
   }
 
-  function rechazar(s: Solicitud) {
-    datos.rechazarSolicitud(s.id, 'Sin disponibilidad en el horario solicitado')
-    toast({
-      titulo: 'Solicitud rechazada',
-      detalle: 'El propietario puede ver el motivo en su portal.',
-      tipo: 'info',
-    })
+  async function rechazar(s: Solicitud) {
+    setProcesandoId(s.id)
+    try {
+      await datos.rechazarSolicitud(s.id, 'Sin disponibilidad en el horario solicitado')
+      toast({
+        titulo: 'Solicitud rechazada',
+        detalle: 'El propietario puede ver el motivo en su portal.',
+        tipo: 'info',
+      })
+    } catch (error) {
+      toast({ titulo: 'No se pudo rechazar', detalle: error instanceof Error ? error.message : 'Intente nuevamente.', tipo: 'error' })
+    } finally {
+      setProcesandoId(null)
+    }
   }
 
   const agenda = vetId ? citasHoy.filter((c) => c.vetId === Number(vetId)) : citasHoy
@@ -128,10 +145,10 @@ export default function VistaRecepcion() {
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => rechazar(s)}>
+                    <Button size="sm" variant="ghost" disabled={procesandoId === s.id} onClick={() => void rechazar(s)}>
                       Rechazar
                     </Button>
-                    <Button size="sm" onClick={() => aceptar(s)}>
+                    <Button size="sm" disabled={procesandoId === s.id || vets.length === 0} onClick={() => void aceptar(s)}>
                       Confirmar
                     </Button>
                   </span>
