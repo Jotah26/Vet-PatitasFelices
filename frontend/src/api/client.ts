@@ -6,6 +6,7 @@ export type BackendUser = {
   email: string
   name: string
   role: 'ADMINISTRATOR' | 'VETERINARIAN' | 'RECEPTIONIST' | 'ASSISTANT' | 'OWNER'
+  ownerId?: number
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {

@@ -76,7 +76,7 @@ const ownerRequest = (owner: Partial<Propietario>) => ({
   ...(owner.direccion !== undefined ? { address: owner.direccion } : {}),
 })
 
-const petRequest = (pet: Partial<Mascota>) => ({
+const petRequest = (pet: Partial<Mascota>, includeOwner = true) => ({
   ...(pet.nombre !== undefined ? { name: pet.nombre } : {}),
   ...(pet.especie !== undefined ? { species: especiesBackend[pet.especie] } : {}),
   ...(pet.raza !== undefined ? { breed: pet.raza } : {}),
@@ -87,7 +87,7 @@ const petRequest = (pet: Partial<Mascota>) => ({
   ...(pet.esterilizado !== undefined ? { isNeutered: pet.esterilizado } : {}),
   ...(pet.antecedentes !== undefined ? { medicalBackground: pet.antecedentes } : {}),
   ...(pet.foto !== undefined ? { photoDataUrl: pet.foto } : {}),
-  ...(pet.propietarioId !== undefined ? { ownerId: pet.propietarioId } : {}),
+  ...(includeOwner && pet.propietarioId !== undefined ? { ownerId: pet.propietarioId } : {}),
 })
 
 /** Días hasta la próxima dosis. Solo se detallan los nombres que no siguen
@@ -481,9 +481,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return
     let activo = true
+    const ownerPortal = user.rol === 'propietario'
     Promise.all([
-      apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
-      apiRequest<BackendPet[]>('/pets', {}, accessToken()),
+      ownerPortal ? Promise.resolve([] as BackendOwner[]) : apiRequest<BackendOwner[]>('/owners', {}, accessToken()),
+      apiRequest<BackendPet[]>(ownerPortal ? '/pets/mine' : '/pets', {}, accessToken()),
     ])
       .then(([owners, pets]) => {
         if (!activo) return
@@ -593,15 +594,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       rechazarSolicitud: (id, motivo) => dispatch({ tipo: 'SOLICITUD_RECHAZAR', datos: { id, motivo } }),
 
       crearMascota: async (payload) => {
-        const mascota = await apiRequest<BackendPet>('/pets', { method: 'POST', body: JSON.stringify(petRequest(payload)) }, accessToken())
+        const ownerPortal = user?.rol === 'propietario'
+        const mascota = await apiRequest<BackendPet>(ownerPortal ? '/pets/mine' : '/pets', { method: 'POST', body: JSON.stringify(petRequest(payload, !ownerPortal)) }, accessToken())
         dispatch({ tipo: 'MASCOTA_CREAR', datos: mapPet(mascota) })
       },
       actualizarMascota: async (id, cambios) => {
-        const mascota = await apiRequest<BackendPet>(`/pets/${id}`, { method: 'PATCH', body: JSON.stringify(petRequest(cambios)) }, accessToken())
+        const ownerPortal = user?.rol === 'propietario'
+        const mascota = await apiRequest<BackendPet>(ownerPortal ? `/pets/mine/${id}` : `/pets/${id}`, { method: 'PATCH', body: JSON.stringify(petRequest(cambios, !ownerPortal)) }, accessToken())
         dispatch({ tipo: 'MASCOTA_ACTUALIZAR', datos: { id, cambios: mapPet(mascota) } })
       },
       eliminarMascota: async (id) => {
-        await apiRequest<null>(`/pets/${id}`, { method: 'DELETE' }, accessToken())
+        const ownerPortal = user?.rol === 'propietario'
+        await apiRequest<null>(ownerPortal ? `/pets/mine/${id}` : `/pets/${id}`, { method: 'DELETE' }, accessToken())
         dispatch({ tipo: 'MASCOTA_ELIMINAR', datos: { id } })
       },
 
@@ -647,7 +651,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       semanas: { hoy: hoy, manana: d(1), semana: d(7), mes: d(30) },
     }
-  }, [estado])
+  }, [estado, user])
 
   return <Contexto.Provider value={api}>{children}</Contexto.Provider>
 }

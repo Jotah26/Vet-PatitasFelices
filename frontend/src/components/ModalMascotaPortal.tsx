@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useCRUD } from '../hooks'
 import { FormularioModal } from '../components/FormularioModal'
 import type { CrudApi, ValoresFormulario } from '../hooks'
-import { useAuth } from '../auth/AuthContext'
 import { useDatos } from '../data/store'
 import { especies, razas_por_especie, sexos } from '../data/roles'
 import { FilaCampos, Input, Select, Textarea } from '../components/ui'
@@ -32,7 +31,6 @@ const vacio = (): MascotaForm => ({
 
 export function ModalMascotaPortal({ alCerrar }: { alCerrar: () => void }) {
   const datos = useDatos()
-  const { user } = useAuth()
 
   const crud = useCRUD<MascotaForm>({
     etiqueta: 'Mascota',
@@ -43,7 +41,7 @@ export function ModalMascotaPortal({ alCerrar }: { alCerrar: () => void }) {
       datos.crearMascota({
         ...resto,
         sexo: (fila.sexo || 'Macho') as Sexo,
-        propietarioId: user?.propietarioId ?? 0,
+        propietarioId: 0,
         ...(foto ? { foto: String(foto) } : {}),
       })
     },

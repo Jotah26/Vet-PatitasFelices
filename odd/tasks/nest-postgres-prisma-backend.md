@@ -328,5 +328,18 @@ The current React application stores veterinary, clinical, inventory, and sessio
 - B06.4 commit identity: `HEAD` is the single Conventional Commit created for this work unit; the exact commit hash is recorded by `git rev-parse HEAD` in the delivery result.
 - B06.4 rollback boundary: revert the single B06.4 commit, or remove only `frontend/src/api/client.ts` response types, the owner/pet API mapping and mutation calls in `frontend/src/data/store.tsx`, the async success/error handling in `frontend/src/hooks/useCRUD.ts`, the portal close-on-success change, the related frontend types, and this evidence. Do not revert B06.1–B06.3 authentication, self-registration, or B06.2 hydration.
 
+- B06.5 adds owner-scoped pet CRUD at `/pets/mine` and `/pets/mine/:id`. These routes retain JWT and role guards, require `RoleKey.OWNER`, resolve the owner from the authenticated user's `User.owner` relation, and filter every read/update/delete by that owner. Staff `/pets` routes and their staff guard metadata remain unchanged; owner DTOs do not accept `ownerId`.
+- B06.5 acceptance: an authenticated owner can list, create, update, and delete only their own pets; missing owner profiles and cross-owner IDs return `404` without exposing records; owner portal hydration and mutations use `/pets/mine` while staff CRUD continues using `/pets`; backend enum fields are mapped to the existing frontend `Mascota` shape.
+- B06.5 evidence:
+  - Backend focused owner/pet test: `npm test -- --runInBand test/owners-pets.e2e-spec.ts` — passed (1 suite, 5 tests), including owner route authorization, owner derivation, CRUD, and rejection of client-supplied `ownerId`.
+  - Backend auth test: `npm run test:auth` — passed (1 suite, 2 tests).
+  - Backend all tests: `npm test -- --runInBand` — passed (12 suites, 32 tests).
+  - Backend lint/build: `npm run lint` and `npm run build` — passed.
+  - Frontend lint: `npm run lint` — passed with the same 2 pre-existing hook dependency warnings and no errors.
+  - Frontend build: `npm run build` — passed; TypeScript and Vite production build completed.
+  - Runtime harness: N/A; focused Jest e2e mocks exercise the guarded route boundary and the requested frontend build/lint checks passed.
+- B06.5 commit identity: the final `HEAD` is the single Conventional Commit created for this work unit; the exact hash is reported by `git rev-parse HEAD` in the delivery result.
+- B06.5 rollback boundary: revert only the B06.5 commit, or remove the owner pet DTOs and `/pets/mine` controller/service methods, the owner relation field in auth responses, the owner-portal route selection/mapping changes in `frontend/src/data/store.tsx`, `frontend/src/auth/AuthContext.tsx`, `frontend/src/api/client.ts`, `frontend/src/components/ModalMascotaPortal.tsx`, the focused test additions, and this evidence. Preserve B06.1–B06.4 authentication, hydration, and staff CRUD behavior.
+
 ## Next step
 Migrate the next bounded DataProvider workflow through the authenticated API.

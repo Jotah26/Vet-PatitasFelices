@@ -17,7 +17,7 @@ export class AuthService {
   async login(credentials: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: credentials.email.trim().toLowerCase() },
-      include: { role: true },
+      include: { role: true, owner: true },
     });
     if (!user || user.status !== UserStatus.ACTIVE || !(await this.password.verify(user.passwordHash, credentials.password))) {
       throw new UnauthorizedException('Invalid credentials.');
@@ -26,16 +26,16 @@ export class AuthService {
     const role = user.role.key;
     return {
       accessToken: await this.jwt.signAsync({ sub: user.id, email: user.email, role }),
-      user: { id: user.id, email: user.email, name: user.name, role },
+        user: this.publicUser(user, role),
     };
   }
 
   async currentUser(userId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { role: true, owner: true } });
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Invalid session.');
     }
-    return { id: user.id, email: user.email, name: user.name, role: user.role.key };
+    return this.publicUser(user, user.role.key);
   }
 
   async registerOwner(data: RegisterOwnerDto) {
@@ -68,12 +68,22 @@ export class AuthService {
       });
       return {
         accessToken: await this.jwt.signAsync({ sub: result.user.id, email: result.user.email, role: result.role }),
-        user: { id: result.user.id, email: result.user.email, name: result.user.name, role: result.role },
+        user: { id: result.user.id, email: result.user.email, name: result.user.name, role: result.role, ownerId: result.owner.id },
       };
     } catch (error: unknown) {
       const code = typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
       if (code === 'P2002') throw new ConflictException('A user with that email or document already exists.');
       throw error;
     }
+  }
+
+  private publicUser(user: { id: number; email: string; name: string; owner?: { id: number } | null }, role: RoleKey) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role,
+      ...(user.owner ? { ownerId: user.owner.id } : {}),
+    };
   }
 }

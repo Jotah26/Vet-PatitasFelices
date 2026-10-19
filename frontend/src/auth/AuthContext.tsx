@@ -14,7 +14,7 @@ const roleMap: Record<BackendUser['role'], 'admin' | 'vet' | 'recepcionista' | '
 }
 
 function mapUser(user: BackendUser) {
-  return { id: user.id, nombre: user.name, email: user.email, rol: roleMap[user.role], estado: 'Activo' as const }
+  return { id: user.id, nombre: user.name, email: user.email, rol: roleMap[user.role], estado: 'Activo' as const, ...(user.ownerId ? { propietarioId: user.ownerId } : {}) }
 }
 
 const Contexto = createContext<AuthApi | null>(null)

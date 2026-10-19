@@ -47,10 +47,68 @@ export class PetsService {
     }
   }
 
+  async findMine(userId: number) {
+    const owner = await this.findOwnerByUserId(userId);
+    return this.prisma.pet.findMany({ where: { ownerId: owner.id } });
+  }
+
+  async findMineOne(userId: number, id: number) {
+    const owner = await this.findOwnerByUserId(userId);
+    const pet = await this.prisma.pet.findFirst({ where: { id, ownerId: owner.id } });
+    if (!pet) {
+      throw new NotFoundException('Pet not found for the authenticated owner.');
+    }
+    return pet;
+  }
+
+  async createMine(userId: number, data: Omit<CreatePetDto, 'ownerId'>) {
+    const owner = await this.findOwnerByUserId(userId);
+    try {
+      return await this.prisma.pet.create({ data: { ...data, ownerId: owner.id } });
+    } catch (error: unknown) {
+      return this.translateError(error);
+    }
+  }
+
+  async updateMine(userId: number, id: number, data: Omit<UpdatePetDto, 'ownerId'>) {
+    const owner = await this.findOwnerByUserId(userId);
+    await this.requireMine(owner.id, id);
+    try {
+      return await this.prisma.pet.update({ where: { id }, data });
+    } catch (error: unknown) {
+      return this.translateError(error);
+    }
+  }
+
+  async removeMine(userId: number, id: number) {
+    const owner = await this.findOwnerByUserId(userId);
+    await this.requireMine(owner.id, id);
+    try {
+      return await this.prisma.pet.delete({ where: { id } });
+    } catch (error: unknown) {
+      return this.translateError(error);
+    }
+  }
+
   private async requireOwner(id: number): Promise<void> {
     const owner = await this.prisma.owner.findUnique({ where: { id } });
     if (!owner) {
       throw new NotFoundException('Owner not found.');
+    }
+  }
+
+  private async findOwnerByUserId(userId: number) {
+    const owner = await this.prisma.owner.findUnique({ where: { userId } });
+    if (!owner) {
+      throw new NotFoundException('No owner profile is linked to the authenticated user.');
+    }
+    return owner;
+  }
+
+  private async requireMine(ownerId: number, petId: number) {
+    const pet = await this.prisma.pet.findFirst({ where: { id: petId, ownerId } });
+    if (!pet) {
+      throw new NotFoundException('Pet not found for the authenticated owner.');
     }
   }
 

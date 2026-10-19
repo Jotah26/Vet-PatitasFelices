@@ -12,6 +12,7 @@ type Owner = {
   phone: string;
   email: string;
   address: string;
+  userId?: number;
 };
 
 type Pet = {
@@ -63,7 +64,8 @@ describe('Staff owner and pet CRUD', () => {
             (owner) =>
               (where.id === undefined || owner.id === where.id) &&
               (where.email === undefined || owner.email === where.email) &&
-              (where.documentNumber === undefined || owner.documentNumber === where.documentNumber),
+              (where.documentNumber === undefined || owner.documentNumber === where.documentNumber) &&
+              (where.userId === undefined || owner.userId === where.userId),
           ) ?? null,
         ),
         update: jest.fn(({ where, data }: { where: Pick<Owner, 'id'>; data: Partial<Owner> }) => {
@@ -103,10 +105,16 @@ describe('Staff owner and pet CRUD', () => {
           pets.set(pet.id, pet);
           return pet;
         }),
-        findMany: jest.fn(() => [...pets.values()]),
+        findMany: jest.fn(({ where }: { where?: { ownerId?: number } } = {}) =>
+          [...pets.values()].filter((pet) => where?.ownerId === undefined || pet.ownerId === where.ownerId)),
+        findFirst: jest.fn(({ where }: { where: Pick<Pet, 'id'> & Partial<Pick<Pet, 'ownerId'>> }) => {
+          const pet = pets.get(where.id);
+          return pet && (where.ownerId === undefined || pet.ownerId === where.ownerId) ? pet : null;
+        }),
         findUnique: jest.fn(({ where }: { where: Pick<Pet, 'id'> }) => pets.get(where.id) ?? null),
         update: jest.fn(({ where, data }: { where: Pick<Pet, 'id'>; data: Partial<Pet> }) => {
           const pet = pets.get(where.id);
+          if (pet && 'ownerId' in where && where.ownerId !== pet.ownerId) throw notFound;
           if (!pet) {
             throw notFound;
           }
@@ -117,6 +125,7 @@ describe('Staff owner and pet CRUD', () => {
         }),
         delete: jest.fn(({ where }: { where: Pick<Pet, 'id'> }) => {
           const pet = pets.get(where.id);
+          if (pet && 'ownerId' in where && where.ownerId !== pet.ownerId) throw notFound;
           if (!pet) {
             throw notFound;
           }
@@ -208,6 +217,16 @@ describe('Staff owner and pet CRUD', () => {
     expect(petsResponse.body).toEqual([expect.objectContaining({ id: 1 })]);
     await staff(request(app.getHttpServer()).get('/pets/1')).expect(200).expect({ ...created.body });
     await staff(request(app.getHttpServer()).patch('/pets/1')).send({ ownerId: 999 }).expect(404);
+
+    owners.get(1)!.userId = 2;
+    const mine = request(app.getHttpServer()).get('/pets/mine').set('Authorization', `Bearer ${ownerToken}`);
+    await mine.expect(200).expect(({ body }) => expect(body).toEqual([expect.objectContaining({ id: 1 })]));
+    await request(app.getHttpServer()).get('/pets/mine/1').set('Authorization', `Bearer ${ownerToken}`).expect(200);
+    await request(app.getHttpServer()).post('/pets/mine').set('Authorization', `Bearer ${ownerToken}`).send({ ...petPayload, name: 'Luna' }).expect(201);
+    await request(app.getHttpServer()).post('/pets/mine').set('Authorization', `Bearer ${ownerToken}`).send({ ...petPayload, ownerId: 999 }).expect(400);
+    await request(app.getHttpServer()).patch('/pets/mine/1').set('Authorization', `Bearer ${ownerToken}`).send({ name: 'Milo updated' }).expect(200);
+    await request(app.getHttpServer()).delete('/pets/mine/2').set('Authorization', `Bearer ${ownerToken}`).expect(204);
+    owners.get(1)!.userId = undefined;
   });
 
   it('translates restrictive deletes into conflicts and deletes independent records', async () => {
