@@ -4,5 +4,4 @@ export class SetupAdministratorDto {
   @IsString() @MinLength(1) name!: string;
   @IsEmail() email!: string;
   @IsString() @MinLength(12) password!: string;
-  @IsString() @MinLength(1) setupToken!: string;
 }

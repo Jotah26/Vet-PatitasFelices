@@ -11,7 +11,7 @@ export default function Setup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [setupToken, setSetupToken] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
 
   if (user) return <Navigate to={rol(user.rol).home} replace />
@@ -19,7 +19,11 @@ export default function Setup() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    const result = await setupAdministrator({ name, email, password, setupToken })
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.')
+      return
+    }
+    const result = await setupAdministrator({ name, email, password })
     if (!result.ok) setError(result.error)
   }
 
@@ -37,9 +41,9 @@ export default function Setup() {
             <Input label="Nombre completo" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} requerido />
             <Input label="Correo electrónico" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} requerido />
             <Input label="Contraseña" type="password" autoComplete="new-password" ayuda="Use al menos 12 caracteres." value={password} onChange={(e) => setPassword(e.target.value)} requerido />
-            <Input label="Token de instalación" type="password" autoComplete="off" ayuda="Lo proporciona quien administra la instalación." value={setupToken} onChange={(e) => setSetupToken(e.target.value)} requerido />
+            <Input label="Confirmar contraseña" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} requerido />
             {error && <p role="alert" className="rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-700">{error}</p>}
-            <Button type="submit" className="w-full">Crear cuenta administradora</Button>
+            <Button type="submit" className="w-full">Crear administrador</Button>
             <Link to="/login" className="block text-center text-sm font-medium text-primary-600 hover:text-primary-700">Volver al inicio de sesión</Link>
           </form>
         </section>

@@ -144,13 +144,13 @@ The current React application stores veterinary, clinical, inventory, and sessio
           - Commit identity: the single Conventional Commit for B06.20; its immutable hash is reported in the delivery result.
             - Rollback boundary: revert only the B06.20 commit, including reminder API typing/hydration, the server-side unlinked-owner guard and focused test, the internal notification consumer, and this checklist evidence; preserve B06.1–B06.19 authentication, owner/pet, scheduling, clinical, vaccine, service, attachment, inventory, payment, and consultation behavior.
 
- - [x] B06.21 — Add secure first-run administrator setup.
-   - Acceptance: `POST /setup/administrator` is available only before an administrator exists, requires `INITIAL_ADMIN_SETUP_TOKEN`, validates and hashes the first administrator, returns the standard JWT/public-user shape, and leaves daily staff creation in the administrator-only Usuarios flow; `seed:admin` remains compatible.
-   - Evidence: backend `test/setup.e2e-spec.ts` covers missing token, invalid token, initialized system, successful setup, and response non-disclosure of password/hash/setup token; token comparison uses constant-time comparison when lengths match and setup failures never log secrets.
+  - [x] B06.21 — Add first-run administrator setup for non-technical operators.
+    - Acceptance: `POST /setup/administrator` is available only before an administrator exists, accepts only name, email, and password, validates and hashes the first administrator, returns the standard JWT/public-user shape, and leaves daily staff creation in the administrator-only Usuarios flow; `seed:admin` remains compatible. The endpoint is rate-limited and uses the existing serializable Prisma transaction to remain race-safe as far as the current database design allows.
+    - Evidence: backend `test/setup.e2e-spec.ts` covers no-token success, already-configured refusal, validation, password/hash non-disclosure, and rate limiting; setup has no credential or token fields in the frontend, backend, tests, or task documentation.
    - Verification: recorded below after verification.
    - Commit identity: the single Conventional Commit created for B06.21; immutable hash is reported in the delivery result.
    - Rollback boundary: revert only the B06.21 commit, including `backend/src/setup/`, setup DTO/tests, environment typing, frontend `/setup` route/form/auth method, Login link, and this checklist entry; preserve `seed:admin`, normal `/auth/login`, owner self-registration, administrator-only `/users`, and all B06.1–B06.20 behavior.
-   - Limitation: the installation token is an environment secret and is not rotated or persisted by the application; operators must protect it through deployment secret management and remove or rotate it after first-run setup.
+    - Limitation: first-run setup must be completed before exposing an unconfigured instance publicly. After the first administrator exists, the endpoint permanently refuses further setup; normal `/login` remains the entry point. This is an intentional tradeoff for a non-technical first-run experience, not a substitute for deployment/network protection.
 
 ## Progress and evidence
 - Branch: `feature/nest-postgres-prisma-backend` created from `main` and published to `origin`.

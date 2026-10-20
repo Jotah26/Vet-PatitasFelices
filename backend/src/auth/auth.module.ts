@@ -21,6 +21,6 @@ import { AuthThrottleService } from './auth-throttle.service';
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthThrottleService, PasswordService, JwtAuthGuard, RolesGuard],
-  exports: [JwtModule, JwtAuthGuard, RolesGuard, PasswordService],
+  exports: [JwtModule, JwtAuthGuard, RolesGuard, PasswordService, AuthThrottleService],
 })
 export class AuthModule {}

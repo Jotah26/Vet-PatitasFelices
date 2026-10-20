@@ -77,7 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!data.name.trim()) return { ok: false, error: 'Ingrese su nombre completo.' }
     if (!data.email.trim()) return { ok: false, error: 'Ingrese su correo electrónico.' }
     if (data.password.length < 12) return { ok: false, error: 'La contraseña debe tener al menos 12 caracteres.' }
-    if (!data.setupToken.trim()) return { ok: false, error: 'Ingrese el token de instalación.' }
     try {
       const response = await apiRequest<LoginResponse>('/setup/administrator', { method: 'POST', body: JSON.stringify(data) })
       const candidato = mapUser(response.user)
