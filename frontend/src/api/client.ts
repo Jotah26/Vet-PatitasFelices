@@ -36,6 +36,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, tok
 
 export type LoginResponse = { accessToken: string; user: BackendUser }
 export type SessionResponse = BackendUser
+export type SetupAdministratorRequest = { name: string; email: string; password: string; setupToken: string }
 export type BackendOwner = {
   id: number
   name: string

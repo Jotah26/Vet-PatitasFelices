@@ -8,6 +8,7 @@ import { EstadoVacio, Button } from './components/ui'
 import { ShieldIcon } from './components/icons'
 
 import Login from './pages/Login'
+import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
 import Citas from './pages/Citas'
 import Solicitudes from './pages/Solicitudes'
@@ -87,6 +88,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/setup" element={<Setup />} />
 
       <Route element={<Interno />}>
         <Route

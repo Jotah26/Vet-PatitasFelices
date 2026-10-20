@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { rol } from '../data/roles'
 import { Button, Input } from '../components/ui'
@@ -152,6 +152,9 @@ export default function Login() {
               >
                 {registro ? 'Ya tengo una cuenta' : 'Crear una cuenta de propietario'}
               </button>
+              <Link to="/setup" className="block text-center text-xs text-slate-400 hover:text-slate-600">
+                Configurar primera cuenta
+              </Link>
             </form>
 
           </div>

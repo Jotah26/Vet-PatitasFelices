@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { apiRequest, type BackendUser, type LoginResponse, type RegisterOwnerRequest, type SessionResponse } from '../api/client'
+import { apiRequest, type BackendUser, type LoginResponse, type RegisterOwnerRequest, type SessionResponse, type SetupAdministratorRequest } from '../api/client'
 import { rol } from '../data/roles'
 import type { AuthApi, ResultadoLogin } from '../data/types'
 
@@ -73,9 +73,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const setupAdministrator = useCallback(async (data: SetupAdministratorRequest): Promise<ResultadoLogin> => {
+    if (!data.name.trim()) return { ok: false, error: 'Ingrese su nombre completo.' }
+    if (!data.email.trim()) return { ok: false, error: 'Ingrese su correo electrónico.' }
+    if (data.password.length < 12) return { ok: false, error: 'La contraseña debe tener al menos 12 caracteres.' }
+    if (!data.setupToken.trim()) return { ok: false, error: 'Ingrese el token de instalación.' }
+    try {
+      const response = await apiRequest<LoginResponse>('/setup/administrator', { method: 'POST', body: JSON.stringify(data) })
+      const candidato = mapUser(response.user)
+      localStorage.setItem(clave_sesion, response.accessToken)
+      setUser(candidato)
+      return { ok: true, usuario: candidato }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'No se pudo completar la configuración inicial.' }
+    }
+  }, [])
+
   const valor = useMemo<AuthApi>(
-    () => ({ user, perfil, login, register, logout, esPropietario: user?.rol === 'propietario' }),
-    [user, perfil, login, register, logout],
+    () => ({ user, perfil, login, register, setupAdministrator, logout, esPropietario: user?.rol === 'propietario' }),
+    [user, perfil, login, register, setupAdministrator, logout],
   )
 
   if (loading) return null

@@ -2,6 +2,7 @@ export type Environment = {
   CORS_ORIGINS: string;
   DATABASE_URL: string;
   JWT_SECRET: string;
+  INITIAL_ADMIN_SETUP_TOKEN?: string;
   NODE_ENV: 'development' | 'test' | 'production';
   PORT: number;
 };
@@ -46,5 +47,8 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     CORS_ORIGINS: origins.join(','),
     DATABASE_URL: databaseUrl,
     JWT_SECRET: jwtSecret,
+    ...(typeof config.INITIAL_ADMIN_SETUP_TOKEN === 'string' && config.INITIAL_ADMIN_SETUP_TOKEN.trim()
+      ? { INITIAL_ADMIN_SETUP_TOKEN: config.INITIAL_ADMIN_SETUP_TOKEN.trim() }
+      : {}),
   };
 }

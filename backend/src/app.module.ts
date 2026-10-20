@@ -14,6 +14,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ServicesModule } from './services/services.module';
 import { UsersModule } from './users/users.module';
+import { SetupModule } from './setup/setup.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     RemindersModule,
     ServicesModule,
     UsersModule,
+    SetupModule,
   ],
   controllers: [HealthController],
 })
